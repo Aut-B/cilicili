@@ -71,6 +71,18 @@ extension VideoDetailViewModel {
         playbackContentMode == .audioOnly
     }
 
+    /// 当前队列是否允许在普通视频播放下自动续播。
+    ///
+    /// 历史上连播逻辑以 `playbackContentMode == .audioOnly` 为唯一入口条件，因为
+    /// 「听视频」是当时唯一的连播场景。收藏夹「播放全部」要在正常视频播放下续播，
+    /// 若继续复用内容模式作门禁，就得把它改成 `.audioOnly`——那会连带影响渲染、
+    /// 弹幕与音频轨选择。因此这里改为按队列来源判定：收藏夹队列放行，其余来源
+    /// 保持原有行为，避免波及其他十余处依赖内容模式的逻辑。
+    var allowsQueueAutoAdvance: Bool {
+        if playbackContentMode == .audioOnly { return true }
+        return videoListenQueueSession.source.allowsVideoModeAutoAdvance
+    }
+
     var canUseVideoListenMode: Bool {
         resolvedVideoListenAudioVariant != nil
     }
@@ -285,7 +297,7 @@ extension VideoDetailViewModel {
         direction: VideoListenAdvanceDirection,
         reason: VideoListenAdvanceReason
     ) {
-        guard playbackContentMode == .audioOnly,
+        guard allowsQueueAutoAdvance,
               !isPlaybackInvalidatedForNavigation
         else { return }
 
@@ -312,7 +324,9 @@ extension VideoDetailViewModel {
             else { return }
             var targetVideo = self.videoListenQueueSession.video(
                 relativeTo: self.detail,
-                direction: direction
+                direction: direction,
+                wrapAround: self.videoListenPlaybackOrder == .repeatAll,
+                randomize: self.videoListenPlaybackOrder == .shuffle
             )
             if targetVideo == nil,
                let currentEntry = self.videoListenQueueEntries.first(where: \.isCurrent) {
@@ -322,7 +336,9 @@ extension VideoDetailViewModel {
                 )
                 targetVideo = self.videoListenQueueSession.video(
                     relativeTo: self.detail,
-                    direction: direction
+                    direction: direction,
+                    wrapAround: self.videoListenPlaybackOrder == .repeatAll,
+                    randomize: self.videoListenPlaybackOrder == .shuffle
                 )
             }
             guard let targetVideo else {
@@ -881,7 +897,7 @@ extension VideoDetailViewModel {
                     priority: .userInitiated
                 )
                 guard !Task.isCancelled,
-                      self.playbackContentMode == .audioOnly,
+                      self.allowsQueueAutoAdvance,
                       self.videoListenQueueSession.generation == queueGeneration,
                       self.isCurrentPlaybackContext(bvid: sourceBVID, cid: sourceCID)
                 else { return }
@@ -924,7 +940,7 @@ extension VideoDetailViewModel {
         direction: VideoListenAdvanceDirection,
         shouldAutoplay: Bool
     ) {
-        guard playbackContentMode == .audioOnly,
+        guard allowsQueueAutoAdvance,
               !isPlaybackTerminatedForNavigation
         else { return }
 
@@ -1015,7 +1031,7 @@ extension VideoDetailViewModel {
     }
 
     func handleVideoListenPlaybackEnded() {
-        guard playbackContentMode == .audioOnly,
+        guard allowsQueueAutoAdvance,
               !isPlaybackInvalidatedForNavigation
         else { return }
 
@@ -1082,7 +1098,7 @@ extension VideoDetailViewModel {
     }
 
     func scheduleVideoListenContinuationPreload() {
-        guard playbackContentMode == .audioOnly,
+        guard allowsQueueAutoAdvance,
               !isPlaybackInvalidatedForNavigation
         else { return }
 

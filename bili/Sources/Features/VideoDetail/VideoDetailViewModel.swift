@@ -181,10 +181,40 @@ final class VideoDetailViewModel: ObservableObject {
         self.isDanmakuEnabled = libraryStore.danmakuEnabled
         self.danmakuSettings = libraryStore.danmakuSettings
         self.isAwaitingInitialManualPlayback = !libraryStore.videoDetailAutoplayEnabled
+        adoptStagedFavoriteFolderQueueIfNeeded(seedVideo: seedVideo)
         refreshDetailDisplayMetrics()
         refreshUploaderFanCountText()
         configureLifecycleBindings()
         syncAllRenderStores()
+    }
+
+    /// 若收藏夹页刚刚暂存了「播放全部」队列，则接管它作为本详情页的连播队列。
+    ///
+    /// 队列在打开详情页之前就已拉取完毕，这里只做灌入，不再发网络请求。
+    /// 失败时保持 `VideoListenQueueSession` 的单视频初始状态，退化为普通单视频播放。
+    private func adoptStagedFavoriteFolderQueueIfNeeded(seedVideo: VideoItem) {
+        let staged = FavoriteFolderPlaybackSession.shared
+        guard let folderID = staged.pendingFolderID,
+              let videos = staged.take(folderID: folderID, seed: seedVideo),
+              !videos.isEmpty
+        else { return }
+
+        var session = VideoListenQueueSession(seedVideo: seedVideo)
+        let generation = session.beginInitialLoad(
+            source: .favoriteFolder(id: folderID),
+            anchor: seedVideo
+        )
+        // 收藏夹内容已全量取回，队列不再需要翻页续拉。
+        session.finishInitialLoad(
+            videos: videos,
+            anchor: seedVideo,
+            source: .favoriteFolder(id: folderID),
+            nextPage: 1,
+            nextCursor: nil,
+            hasMore: false,
+            generation: generation
+        )
+        videoListenQueueSession = session
     }
 
     deinit {

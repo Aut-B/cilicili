@@ -174,6 +174,39 @@ final class MineViewModel: ObservableObject {
         await loadMoreFavoriteFolder(folder)
     }
 
+    /// 连续翻页直到取完整个收藏夹。
+    ///
+    /// 「播放全部」与「编辑排序」都需要完整列表——队列要覆盖全部视频，
+    /// 拖拽排序也不能只对已加载的首页生效。逐页复用 `loadMoreFavoriteFolder`，
+    /// 沿用它的去重与防死循环逻辑。
+    func loadAllFavoriteFolderEntries(_ folder: FavoriteFolder) async {
+        guard sessionStore.isLoggedIn else { return }
+        // 首屏尚未加载时先拉第一页，否则无从判断还有多少页。
+        if favoriteFolderEntryStates[folder.id] == nil || favoriteFolderEntries[folder.id]?.isEmpty == true {
+            await refreshFavoriteFolder(folder)
+        }
+
+        var consecutiveNoProgress = 0
+        while favoriteFolderHasMore[folder.id] == true {
+            let before = favoriteFolderEntries[folder.id]?.count ?? 0
+            await loadMoreFavoriteFolder(folder)
+            let after = favoriteFolderEntries[folder.id]?.count ?? 0
+            // 服务端重复返回同一页时会命中 loadMoreFavoriteFolder 的防重条件而不再追加，
+            // 此时计数不再增长，继续循环会死等，故按连续无进展次数收口。
+            if after > before {
+                consecutiveNoProgress = 0
+            } else {
+                consecutiveNoProgress += 1
+                if consecutiveNoProgress >= 2 { break }
+            }
+        }
+    }
+
+    /// 该收藏夹是否已完整加载（无后续分页）。
+    func isFavoriteFolderFullyLoaded(_ folder: FavoriteFolder) -> Bool {
+        favoriteFolderHasMore[folder.id] != true
+    }
+
     func loadMoreFavoriteFolder(_ folder: FavoriteFolder) async {
         guard sessionStore.isLoggedIn,
               favoriteFolderHasMore[folder.id] == true,

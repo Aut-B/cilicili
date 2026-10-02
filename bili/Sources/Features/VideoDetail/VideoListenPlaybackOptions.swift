@@ -115,6 +115,10 @@ enum VideoListenPlaybackOrder: String, CaseIterable, Identifiable, Sendable {
     case sequential
     case repeatCurrent
     case stopAfterCurrent
+    /// 列表循环：播完最后一项回到第一项。
+    case repeatAll
+    /// 随机播放：每次播完随机挑一个不同的视频。
+    case shuffle
 
     var id: String { rawValue }
 
@@ -126,6 +130,10 @@ enum VideoListenPlaybackOrder: String, CaseIterable, Identifiable, Sendable {
             return "单集循环"
         case .stopAfterCurrent:
             return "播完暂停"
+        case .repeatAll:
+            return "列表循环"
+        case .shuffle:
+            return "随机播放"
         }
     }
 
@@ -137,6 +145,10 @@ enum VideoListenPlaybackOrder: String, CaseIterable, Identifiable, Sendable {
             return "当前内容播完后从头继续"
         case .stopAfterCurrent:
             return "当前内容播完后停止，不自动续播"
+        case .repeatAll:
+            return "播完最后一个后回到第一个继续"
+        case .shuffle:
+            return "每次播完后随机播放列表中的另一个视频"
         }
     }
 
@@ -148,6 +160,10 @@ enum VideoListenPlaybackOrder: String, CaseIterable, Identifiable, Sendable {
             return "repeat.1"
         case .stopAfterCurrent:
             return "stop.circle"
+        case .repeatAll:
+            return "repeat"
+        case .shuffle:
+            return "shuffle"
         }
     }
 }
@@ -238,6 +254,8 @@ enum VideoListenQueueSource: Hashable {
     case uploader(mid: Int)
     case pgcSeason(id: Int?)
     case related(anchorBVID: String)
+    /// 收藏夹「播放全部」：队列来自某个收藏夹的完整内容。
+    case favoriteFolder(id: Int)
 
     var title: String {
         switch self {
@@ -251,6 +269,22 @@ enum VideoListenQueueSource: Hashable {
             return "剧集列表"
         case .related:
             return "相关推荐"
+        case .favoriteFolder:
+            return "收藏夹"
+        }
+    }
+
+    /// 收藏夹队列以视频播放为主，不属于「听视频」场景。
+    ///
+    /// 连播门禁历史上只看 `playbackContentMode == .audioOnly`，那是"听视频"的入口条件；
+    /// 收藏夹要能在正常视频播放下自动续播，因此单独按来源放行，避免改动内容模式语义
+    /// 而波及渲染、弹幕等十几处依赖。
+    var allowsVideoModeAutoAdvance: Bool {
+        switch self {
+        case .favoriteFolder:
+            return true
+        case .currentVideo, .officialListener, .uploader, .pgcSeason, .related:
+            return false
         }
     }
 }
@@ -418,16 +452,38 @@ struct VideoListenQueueSession: Equatable {
         }
     }
 
+    /// 按播放模式取出相对当前视频的下一项 / 上一项。
+    ///
+    /// - Parameters:
+    ///   - wrapAround: 到达列表两端时是否回绕（列表循环模式）。
+    ///   - randomize: 随机播放模式，忽略方向与位置，随机取一个不同于当前视频的项。
     func video(
         relativeTo current: VideoItem,
-        direction: VideoListenAdvanceDirection
+        direction: VideoListenAdvanceDirection,
+        wrapAround: Bool = false,
+        randomize: Bool = false
     ) -> VideoItem? {
+        guard !videos.isEmpty else { return nil }
         guard let index = videos.firstIndex(where: {
             VideoListenQueueBuilder.representsSameVideo($0, current)
         }) else { return nil }
-        let targetIndex = direction == .next ? index + 1 : index - 1
-        guard videos.indices.contains(targetIndex) else { return nil }
-        return videos[targetIndex]
+
+        if randomize {
+            guard videos.count > 1 else { return videos.indices.contains(index) ? videos[index] : nil }
+            // 随机到当前视频时顺延一格，保证"随机"下也有推进感，且不会原地卡死。
+            var candidate = Int.random(in: 0..<(videos.count - 1))
+            if candidate >= index { candidate += 1 }
+            return videos[candidate]
+        }
+
+        let offset = direction == .next ? 1 : -1
+        let targetIndex = index + offset
+        if videos.indices.contains(targetIndex) {
+            return videos[targetIndex]
+        }
+        guard wrapAround, !videos.isEmpty else { return nil }
+        let wrapped = (targetIndex % videos.count + videos.count) % videos.count
+        return videos[wrapped]
     }
 
     private static func uniqueVideos(

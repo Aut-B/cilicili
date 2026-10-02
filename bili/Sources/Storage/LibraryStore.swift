@@ -142,6 +142,7 @@ final class LibraryStore: ObservableObject {
     @Published private(set) var videoDetailAutoplayEnabled: Bool
     @Published private(set) var videoListenPlaybackOrder: VideoListenPlaybackOrder
     @Published private(set) var videoListenPlaylistSortOrder: VideoListenPlaylistSortOrder
+    @Published private(set) var favoriteFolderOrder = FavoriteFolderOrderStore()
     @Published private(set) var cellularBiliTrafficCompatibilityExperimentEnabled: Bool
     @Published private(set) var incognitoModeEnabled: Bool
     @Published private(set) var guestModeEnabled: Bool
@@ -225,6 +226,7 @@ final class LibraryStore: ObservableObject {
     private static let videoDetailAutoplayEnabledKey = "cc.bili.videoDetail.autoplayEnabled.v1"
     private static let videoListenPlaybackOrderKey = "cc.bili.playback.videoListenPlaybackOrder.v1"
     private static let videoListenPlaylistSortOrderKey = "cc.bili.playback.videoListenPlaylistSortOrder.v1"
+    private static let favoriteFolderOrderKey = "cc.bili.favorite.folderOrder.v1"
     private static let cellularBiliTrafficCompatibilityExperimentEnabledKey = CellularBiliTrafficCompatibilityExperiment
         .storageKey
     private static let incognitoModeEnabledKey = "cc.bili.privacy.incognitoModeEnabled.v1"
@@ -620,6 +622,10 @@ final class LibraryStore: ObservableObject {
             userDefaults.string(
                 forKey: Self.videoListenPlaylistSortOrderKey
             ).flatMap(VideoListenPlaylistSortOrder.init(rawValue:)) ?? .normal
+        if let data = userDefaults.data(forKey: Self.favoriteFolderOrderKey),
+           let decoded = try? JSONDecoder().decode(FavoriteFolderOrderStore.self, from: data) {
+            self.favoriteFolderOrder = decoded
+        }
         self.cellularBiliTrafficCompatibilityExperimentEnabled =
             userDefaults.object(
                 forKey: Self.cellularBiliTrafficCompatibilityExperimentEnabledKey
@@ -1260,6 +1266,42 @@ final class LibraryStore: ObservableObject {
     func setVideoListenPlaylistSortOrder(_ order: VideoListenPlaylistSortOrder) {
         videoListenPlaylistSortOrder = order
         userDefaults.set(order.rawValue, forKey: Self.videoListenPlaylistSortOrderKey)
+    }
+
+    /// 覆盖某个收藏夹内的视频顺序。传入空数组表示撤销该收藏夹的自定义顺序。
+    func setFavoriteFolderOrder(_ videoIDs: [String], for folderID: Int) {
+        favoriteFolderOrder.setOrderedVideoIDs(videoIDs, for: folderID)
+        persistFavoriteFolderOrder()
+    }
+
+    /// 撤销某个收藏夹的自定义顺序，恢复成 B 站返回的原始顺序。
+    func resetFavoriteFolderOrder(for folderID: Int) {
+        favoriteFolderOrder.setOrderedVideoIDs([], for: folderID)
+        persistFavoriteFolderOrder()
+    }
+
+    /// 导入外部顺序数据。返回是否成功解析并写入。
+    @discardableResult
+    func importFavoriteFolderOrder(from text: String) -> Bool {
+        guard let data = text.data(using: .utf8),
+              let transfer = try? JSONDecoder().decode(FavoriteFolderOrderTransfer.self, from: data)
+        else { return false }
+        favoriteFolderOrder = transfer.makeStore()
+        persistFavoriteFolderOrder()
+        return true
+    }
+
+    func favoriteFolderOrderExportText() -> String {
+        let transfer = FavoriteFolderOrderTransfer(store: favoriteFolderOrder)
+        guard let data = try? JSONEncoder().encode(transfer),
+              let text = String(data: data, encoding: .utf8)
+        else { return "" }
+        return text
+    }
+
+    private func persistFavoriteFolderOrder() {
+        guard let data = try? JSONEncoder().encode(favoriteFolderOrder) else { return }
+        userDefaults.set(data, forKey: Self.favoriteFolderOrderKey)
     }
 
     func setCellularBiliTrafficCompatibilityExperimentEnabled(_ isEnabled: Bool) {
