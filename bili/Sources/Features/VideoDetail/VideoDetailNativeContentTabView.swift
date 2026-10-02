@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct VideoDetailNativeContentTabView<Content: View>: View {
     private let segmentedPickerHeight: CGFloat = 40
@@ -33,6 +34,7 @@ struct VideoDetailNativeContentTabView<Content: View>: View {
             }
         }
         .ignoresSafeArea(.container, edges: .bottom)
+        .overlay(alignment: .bottom) { ios15BottomBar }
         .toolbar {
                 ToolbarSpacer(.flexible, placement: .bottomBar)
                 ToolbarItem(placement: .bottomBar) {
@@ -83,6 +85,24 @@ struct VideoDetailNativeContentTabView<Content: View>: View {
         .toolbarVisibility(hidesBottomToolbar ? .hidden : .visible, for: .bottomBar)
         .toolbarVisibility(.hidden, for: .tabBar)
         .tint(appTintColor)
+    }
+
+    /// iOS 15 回退底栏。
+    ///
+    /// `.toolbar` 的 bottomBar 在本工程（UIKit 外壳承载的 SwiftUI 内容）于 iOS 15 上不渲染，
+    /// 「简介 / 评论」整条切换栏会消失，评论入口随之丢失。iOS 15 用显式浮层补一条等价底栏；
+    /// iOS 16 及以上仍走系统 toolbar，不做任何改动。
+    @ViewBuilder
+    private var ios15BottomBar: some View {
+        if #available(iOS 16.0, *) {
+            EmptyView()
+        } else if !hidesBottomToolbar {
+            VideoDetailIOS15BottomToolbar(
+                selection: toolbarSelection,
+                onRefreshComments: onRefreshComments,
+                onOpenCommentComposer: onOpenCommentComposer
+            )
+        }
     }
 
     private var tabContent: some View {
@@ -549,5 +569,57 @@ private struct VideoDetailToolbarCommentRefreshButton: View {
         .tint(.primary)
         .accessibilityLabel("刷新评论")
         .accessibilityIdentifier("video.detail.toolbar-comment-refresh")
+    }
+}
+
+/// iOS 15 专用：替代系统 bottomBar toolbar 的显式底栏。
+/// 版式对齐系统 toolbar 的原始排布（刷新/发表评论 + 居中的「简介 | 评论」切换器）。
+private struct VideoDetailIOS15BottomToolbar: View {
+    @Binding var selection: VideoDetailContentTab
+    let onRefreshComments: () -> Void
+    let onOpenCommentComposer: (() -> Void)?
+
+    private static let buttonSize = VideoDetailToolbarCommentComposerButton.size
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Group {
+                if selection == .comments {
+                    VideoDetailToolbarCommentRefreshButton(action: onRefreshComments)
+                } else {
+                    Color.clear
+                }
+            }
+            .frame(width: Self.buttonSize, height: Self.buttonSize)
+
+            VideoDetailToolbarSegmentedPickerView(selection: $selection)
+                .frame(width: VideoDetailToolbarSegmentedPickerView.compactWidth)
+
+            Group {
+                if selection == .comments, let onOpenCommentComposer {
+                    VideoDetailToolbarCommentComposerButton(action: onOpenCommentComposer)
+                } else {
+                    Color.clear
+                }
+            }
+            .frame(width: Self.buttonSize, height: Self.buttonSize)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .padding(.bottom, 6 + bottomSafeAreaInset)
+        .frame(maxWidth: .infinity)
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .top) { Divider() }
+        .animation(.smooth(duration: 0.22), value: selection)
+        .accessibilityIdentifier("video.detail.ios15-bottom-toolbar")
+    }
+
+    /// 底栏贴屏幕下沿绘制，正文需让开底部安全区（iPhone 6s 等实体 Home 键机型为 0）。
+    private var bottomSafeAreaInset: CGFloat {
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+        let window = windows.first(where: \.isKeyWindow) ?? windows.first
+        return window?.safeAreaInsets.bottom ?? 0
     }
 }

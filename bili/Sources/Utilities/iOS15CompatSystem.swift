@@ -584,7 +584,13 @@ public struct ProposedViewSize: Equatable {
 // MARK: - UIKit：方向 / 几何 (iOS 16)
 
 public struct BiliWindowSceneGeometry {
-    public var interfaceOrientation: UIInterfaceOrientation { .portrait }
+    private let orientation: UIInterfaceOrientation
+
+    public init(interfaceOrientation: UIInterfaceOrientation) {
+        self.orientation = interfaceOrientation
+    }
+
+    public var interfaceOrientation: UIInterfaceOrientation { orientation }
     public var coordinateSpace: UICoordinateSpace { UIScreen.main.coordinateSpace }
 }
 
@@ -603,12 +609,40 @@ public struct BiliGeometryPreferences {
 }
 
 extension UIWindowScene {
-    public var effectiveGeometry: BiliWindowSceneGeometry { BiliWindowSceneGeometry() }
+    public var effectiveGeometry: BiliWindowSceneGeometry {
+        BiliWindowSceneGeometry(interfaceOrientation: interfaceOrientation)
+    }
 
+    /// iOS 15 回退：系统没有 `requestGeometryUpdate(_:errorHandler:)`（iOS 16 引入），
+    /// 只能改写 UIDevice 的设备方向再请求重新评估旋转。
+    ///
+    /// 原实现是空函数，导致播放器「全屏」按钮（以及直播进/退横屏、退出详情页回竖屏）
+    /// 在 iOS 15 上完全失效——只有用户手动把手机横过来才会旋转。
     public func requestGeometryUpdate(
         _ preferences: BiliGeometryPreferences,
         errorHandler: ((Error) -> Void)? = nil
-    ) {}
+    ) {
+        let mask = preferences.interfaceOrientations
+        let targetOrientation: UIInterfaceOrientation
+        if mask.contains(.landscapeRight) {
+            targetOrientation = .landscapeRight
+        } else if mask.contains(.landscapeLeft) {
+            targetOrientation = .landscapeLeft
+        } else if mask.contains(.landscape) {
+            targetOrientation = .landscapeRight
+        } else if mask.contains(.portraitUpsideDown) {
+            targetOrientation = .portraitUpsideDown
+        } else {
+            targetOrientation = .portrait
+        }
+
+        UIDevice.current.setValue(targetOrientation.rawValue, forKey: "orientation")
+        UIViewController.attemptRotationToDeviceOrientation()
+        windows
+            .first(where: \.isKeyWindow)?
+            .rootViewController?
+            .setNeedsUpdateOfSupportedInterfaceOrientations()
+    }
 }
 
 extension UIViewController {
