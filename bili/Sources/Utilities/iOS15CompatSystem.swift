@@ -284,6 +284,20 @@ extension View {
     public func sharedBackgroundVisibility(_ visibility: Visibility) -> some View { self }
 }
 
+// iOS 15 上没有 Font.system(_:design:weight:)（该「文本样式 + 字重」3 参重载是 iOS 16 才加的）。
+// 这里用 SwiftUI.Font.system(_:design:).weight(_:) 组合来提供，并显式限定 SwiftUI.Font，
+// 否则内部 Font.system(style, design:) 会被解析回本扩展自身（默认 weight）造成无限递归，
+// 进而导致主线程栈溢出闪退（已在真机日志中确认）。
+extension Font {
+    public static func system(
+        _ style: Font.TextStyle,
+        design: Font.Design = .default,
+        weight: Font.Weight = .regular
+    ) -> Font {
+        SwiftUI.Font.system(style, design: design).weight(weight)
+    }
+}
+
 extension TextField where Label == Text {
     public init<S: StringProtocol>(_ title: S, text: Binding<String>, axis: Axis) {
         self.init(title, text: text)
