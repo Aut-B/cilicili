@@ -225,6 +225,8 @@ extension View {
     }
 
     public func scrollClipDisabled(_ disabled: Bool = true) -> some View { self }
+
+    public func defaultScrollAnchor(_ anchor: UnitPoint? = nil) -> some View { self }
 }
 
 // MARK: - contentMargins / safeAreaPadding (iOS 17)
