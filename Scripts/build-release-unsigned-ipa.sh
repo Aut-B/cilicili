@@ -24,7 +24,7 @@ if ! xcodebuild build \
     CODE_SIGN_IDENTITY="" \
     CODE_SIGNING_REQUIRED=NO \
     CODE_SIGNING_ALLOWED=NO \
-    AD_HOC_CODE_SIGNING_ALLOWED=YES \
+    AD_HOC_CODE_SIGNING_ALLOWED=YES \n    OTHER_SWIFT_FLAGS="-Xfrontend -solver-expression-time-threshold=10000" \
     ENABLE_DEBUG_DYLIB=NO > "$LOG_PATH" 2>&1; then
   echo "Build failed. Log: $LOG_PATH" >&2
   echo "=== 全部 error 汇总（去重）===" >&2

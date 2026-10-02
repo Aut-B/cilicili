@@ -554,11 +554,10 @@ private struct AccountPrivateMessageConversationView: View {
             ),
             titleVisibility: .visible
         ) {
-            if let pendingWithdrawal {
-                Button("撤回", role: .destructive) {
-                    self.pendingWithdrawal = nil
-                    Task { await withdraw(pendingWithdrawal) }
-                }
+            Button("撤回", role: .destructive) {
+                guard let pendingWithdrawal else { return }
+                self.pendingWithdrawal = nil
+                Task { await withdraw(pendingWithdrawal) }
             }
             Button("取消", role: .cancel) {
                 pendingWithdrawal = nil
