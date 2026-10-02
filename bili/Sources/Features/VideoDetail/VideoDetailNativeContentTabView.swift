@@ -635,27 +635,25 @@ private struct VideoDetailIOS15BottomToolbar: View {
         }
         .padding(.horizontal, 12)
         .padding(.top, Self.verticalPadding)
-        .padding(.bottom, Self.verticalPadding + bottomSafeAreaInset)
+        .padding(.bottom, Self.verticalPadding)
         .frame(maxWidth: .infinity)
         .background(.ultraThinMaterial)
         .overlay(alignment: .top) { Divider() }
-        .animation(.smooth(duration: 0.22), value: selection)
         .accessibilityIdentifier("video.detail.ios15-bottom-toolbar")
     }
 
-    /// 底栏贴屏幕下沿绘制，正文需让开底部安全区（iPhone 6s 等实体 Home 键机型为 0）。
-    private var bottomSafeAreaInset: CGFloat {
-        let windows = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap(\.windows)
-        let window = windows.first(where: \.isKeyWindow) ?? windows.first
-        return window?.safeAreaInsets.bottom ?? 0
+    /// iOS 15 回退底栏实际占用的高度，供滚动内容让位使用。
+    ///
+    /// 固定值，不掺入窗口安全区查询：底栏底部由 `.overlay(alignment: .bottom)`
+    /// 锚在屏幕下沿，若高度再叠加动态安全区，切换「简介 / 评论」时高度会被
+    /// 动画过去并固化——表现为点一次评论底栏就升高、且再也回不去。
+    static func ios15BottomBarHeight(includingSafeArea safeAreaBottom: CGFloat) -> CGFloat {
+        fixedHeight
     }
 
-    /// iOS 15 回退底栏实际占用的高度，供滚动内容让位使用。
-    static func ios15BottomBarHeight(includingSafeArea safeAreaBottom: CGFloat) -> CGFloat {
-        VideoDetailToolbarSegmentedPickerView.height + Self.verticalPadding * 2 + max(safeAreaBottom, 0)
-    }
+    /// 底栏的确定性总高：切换器高度 + 上下留白。
+    static let fixedHeight: CGFloat =
+        VideoDetailToolbarSegmentedPickerView.height + verticalPadding * 2
 
     private static let verticalPadding: CGFloat = 4
 }

@@ -47,16 +47,40 @@ struct VideoDetailShellLayout: Equatable {
         )
     }
 
+    /// 判定「竖直拍摄素材」的宽高比阈值。
+    ///
+    /// 旧实现用 `0.9` 且**没有校验宽高比是否缺失**：元数据尚未加载完成时
+    /// `videoAspectRatio` 为 0，而 `0 < 0.9` 成立，于是 16:9 素材被误判为竖屏素材，
+    /// 返回 `bounds.height * 0.65`（iPhone 6s 上约 433pt）的高盒子。画面在
+    /// `.resizeAspect` 下居中后上下各留约 111pt 黑边，即用户反馈的
+    /// 「竖屏没有正常填满屏幕、上方空出大黑边」。阈值收紧到 0.8（真正的竖直素材
+    /// 宽高比通常在 0.5625 左右，0.8 足以区分，且不再误伤 4:3 等横向素材）。
+    static let portraitAspectRatioThreshold: CGFloat = 0.8
+
+    /// 归一化宽高比：缺失、非有限值或超出合理区间时一律回退到 16:9。
+    ///
+    /// 关键点：**宽高比未知必须按横屏素材处理，而不是按竖屏素材处理**，
+    /// 否则会走进 0.65 屏高的高盒子分支产生黑边。
+    static func normalizedAspectRatio(_ raw: CGFloat) -> CGFloat {
+        guard raw.isFinite, raw > 0.2 else { return 16.0 / 9.0 }
+        return min(max(raw, 0.2), 4.0)
+    }
+
     static func expandedPlayerHeight(
         bounds: CGSize,
         videoAspectRatio: CGFloat
     ) -> CGFloat {
+        let ratio = normalizedAspectRatio(videoAspectRatio)
         let standard = standardPlayerHeight(forWidth: bounds.width)
-        guard videoAspectRatio < 0.9 else {
-            // 16:9 等横屏视频在竖屏下按真实比例撑满宽度：宽度给满、由此推出高度，
-            // 播放器与画面同为 9:16，`.resizeAspect` 不再产生上下黑边。
-            return aspectFillHeight(forWidth: bounds.width, videoAspectRatio: videoAspectRatio)
+        guard ratio < portraitAspectRatioThreshold else {
+            // 横屏素材：宽度铺满、盒子比例跟随素材，`.resizeAspect` 不再产生上下黑边。
+            // 上限收敛到 0.72 屏高，避免极端素材（超宽/超高）把播放器撑得过高。
+            return min(
+                aspectFillHeight(forWidth: bounds.width, videoAspectRatio: ratio),
+                max(standard, bounds.height * 0.72)
+            )
         }
+        // 竖直拍摄素材：给一个更高的观看区（宽度仍铺满）。
         let proposed = max(bounds.height * 0.65, bounds.width)
         let maximum = max(standard, bounds.height * 0.72)
         return max(standard, min(proposed, maximum))
