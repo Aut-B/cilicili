@@ -451,6 +451,18 @@ private struct AccountPrivateMessageConversationView: View {
     @State private var messageActionErrorMessage: String?
     @FocusState private var isComposerFocused: Bool
 
+    private func loadSession(using proxy: ScrollViewProxy) async {
+        guard state == .idle else { return }
+        draft = viewModel.privateMessageDraft(talkerID: session.talkerID)
+        if session.unreadCount == 0 {
+            lastAcknowledgedSequence = session.lastMessageSequence
+        }
+        await load(reset: true)
+        scrollToLatest(using: proxy)
+        await markReadIfNeeded(latestSequence: session.lastMessageSequence)
+        await synchronizeLoop(using: proxy)
+    }
+
     private var messageRows: some View {
         ForEach(messages) { message in
             AccountPrivateMessageBubble(
@@ -487,15 +499,7 @@ private struct AccountPrivateMessageConversationView: View {
                 scrollToLatest(using: proxy)
             }
             .task(id: session.talkerID) {
-                guard state == .idle else { return }
-                draft = viewModel.privateMessageDraft(talkerID: session.talkerID)
-                if session.unreadCount == 0 {
-                    lastAcknowledgedSequence = session.lastMessageSequence
-                }
-                await load(reset: true)
-                scrollToLatest(using: proxy)
-                await markReadIfNeeded(latestSequence: session.lastMessageSequence)
-                await synchronizeLoop(using: proxy)
+                await loadSession(using: proxy)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 composer(using: proxy)
