@@ -325,8 +325,8 @@ extension VideoDetailViewModel {
             var targetVideo = self.videoListenQueueSession.video(
                 relativeTo: self.detail,
                 direction: direction,
-                wrapAround: self.videoListenPlaybackOrder == .repeatAll,
-                randomize: self.videoListenPlaybackOrder == .shuffle
+                wrapAround: self.serviceDependencies.libraryStore.videoListenPlaybackOrder == .repeatAll,
+                randomize: self.serviceDependencies.libraryStore.videoListenPlaybackOrder == .shuffle
             )
             if targetVideo == nil,
                let currentEntry = self.videoListenQueueEntries.first(where: \.isCurrent) {
@@ -337,8 +337,8 @@ extension VideoDetailViewModel {
                 targetVideo = self.videoListenQueueSession.video(
                     relativeTo: self.detail,
                     direction: direction,
-                    wrapAround: self.videoListenPlaybackOrder == .repeatAll,
-                    randomize: self.videoListenPlaybackOrder == .shuffle
+                    wrapAround: self.serviceDependencies.libraryStore.videoListenPlaybackOrder == .repeatAll,
+                    randomize: self.serviceDependencies.libraryStore.videoListenPlaybackOrder == .shuffle
                 )
             }
             guard let targetVideo else {
@@ -624,7 +624,7 @@ extension VideoDetailViewModel {
             )
         case .uploader(let ownerMID):
             await loadMoreUploaderVideoListenQueueIfNeeded(current: entry, ownerMID: ownerMID)
-        case .currentVideo, .pgcSeason, .related:
+        case .currentVideo, .pgcSeason, .related, .favoriteFolder:
             return
         }
     }
@@ -785,6 +785,10 @@ extension VideoDetailViewModel {
         case .uploader(let ownerMID):
             return !detail.isPGCEpisode && ownerMID == detail.owner?.mid
         case .related:
+            return true
+        case .favoriteFolder:
+            // 收藏夹队列在打开详情页前已全量取回，直接进入连播就绪状态。
+            return true
             return videoListenQueueSession.videos.contains(where: {
                 VideoListenQueueBuilder.representsSameVideo($0, detail)
             })
