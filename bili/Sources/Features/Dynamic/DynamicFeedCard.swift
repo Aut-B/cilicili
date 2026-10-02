@@ -334,7 +334,6 @@ private struct DynamicDetailView: View {
         )
         .background(Color(.systemBackground))
         .toolbar {
-            if richCommentComposerTarget == nil {
                 DynamicDetailBottomInteractionBar(
                     display: display,
                     initialIsLiked: item.isLiked,
@@ -345,7 +344,6 @@ private struct DynamicDetailView: View {
                         richCommentComposerTarget = .dynamic
                     }
                 )
-            }
         }
         .toolbar(
             richCommentComposerTarget != nil

@@ -489,12 +489,9 @@ private struct AccountPrivateMessageConversationView: View {
                 if session.unreadCount == 0 {
                     lastAcknowledgedSequence = session.lastMessageSequence
                 }
-                async let readAcknowledgement: Void = markReadIfNeeded(
-                    latestSequence: session.lastMessageSequence
-                )
                 await load(reset: true)
                 scrollToLatest(using: proxy)
-                _ = await readAcknowledgement
+                await markReadIfNeeded(latestSequence: session.lastMessageSequence)
                 await synchronizeLoop(using: proxy)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
