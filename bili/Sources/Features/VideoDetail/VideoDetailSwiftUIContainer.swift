@@ -599,12 +599,54 @@ private struct VideoDetailInteractivePlayerLayer: View {
                     .zIndex(3)
                 }
             }
+
+            VideoDetailGeometryDebugHUD(
+                layout: layout,
+                bounds: size,
+                videoAspectRatio: model.videoAspectRatio,
+                isLandscape: rotationCoordinator.layoutLandscape,
+                isPortraitFullscreen: rotationCoordinator.isPortraitFullscreen
+            )
+            .zIndex(99)
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
             .onChange(of: layout) { _, newLayout in
                 guard newLayout.playerFrame != model.playerFrame else { return }
                 model.scheduleLayoutSynchronization(newLayout)
             }
+    }
+}
+
+/// 临时诊断浮层（诊断用，拿到数据后即移除）。
+///
+/// 连续四轮按猜测修改布局公式均未奏效，改为让 App 把决定性几何量直接画在屏幕上，
+/// 依据真实数值定位，而不再推断。
+@MainActor
+private struct VideoDetailGeometryDebugHUD: View {
+    let layout: VideoDetailShellLayout
+    let bounds: CGSize
+    let videoAspectRatio: CGFloat
+    let isLandscape: Bool
+    let isPortraitFullscreen: Bool
+
+    var body: some View {
+        let playerFrame = layout.playerFrame
+        let text =
+            "GEOM bounds \(Int(bounds.width))x\(Int(bounds.height))\n"
+            + "player \(Int(playerFrame.width))x\(Int(playerFrame.height)) y=\(Int(playerFrame.minY))\n"
+            + "aspect \(String(format: "%.3f", videoAspectRatio))\n"
+            + "fullscreen \(layout.usesFullscreenLayout) land \(isLandscape) pfs \(isPortraitFullscreen)\n"
+            + "topInset \(Int(layout.contentTopInset ?? -1))"
+        return VStack(alignment: .leading) {
+            Text(text)
+                .font(.system(size: 11))
+                .foregroundColor(.green)
+                .padding(4)
+                .background(Color.black.opacity(0.8))
+            Spacer()
+        }
+        .frame(width: bounds.width, height: bounds.height, alignment: .topLeading)
+        .allowsHitTesting(false)
     }
 }
 
