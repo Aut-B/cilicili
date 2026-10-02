@@ -167,7 +167,7 @@ enum AppTypography {
 
         func nativeFont() -> Font {
             if let nativeWeight {
-                return .system(
+                return .biliSystem(
                     nativeTextStyle,
                     design: design.swiftUIDesign,
                     weight: nativeWeight.swiftUIWeight

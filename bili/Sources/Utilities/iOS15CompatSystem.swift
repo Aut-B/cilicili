@@ -285,11 +285,15 @@ extension View {
 }
 
 // iOS 15 上没有 Font.system(_:design:weight:)（该「文本样式 + 字重」3 参重载是 iOS 16 才加的）。
-// 这里用 SwiftUI.Font.system(_:design:).weight(_:) 组合来提供，并显式限定 SwiftUI.Font，
-// 否则内部 Font.system(style, design:) 会被解析回本扩展自身（默认 weight）造成无限递归，
-// 进而导致主线程栈溢出闪退（已在真机日志中确认）。
+//
+// 关键坑：若把兼容方法命名为 `system`，它（三个参数都有默认值）会**遮蔽**系统所有 arity 的
+// `Font.system`，导致内部任何对 `Font.system(...)` 的调用都被解析回本方法自身、形成无限递归，
+// 主线程栈溢出闪退（已在真机日志中确认，最初版本即因此崩溃）。
+//
+// 因此这里**故意改名**为 `biliSystem`，不再遮蔽 `system`。方法体内调用的 `SwiftUI.Font.system(_:design:)`
+// 是 iOS 13 起系统自带的 2 参重载，不再有同名扩展与之争夺，递归被彻底切断。
 extension Font {
-    public static func system(
+    public static func biliSystem(
         _ style: Font.TextStyle,
         design: Font.Design = .default,
         weight: Font.Weight = .regular
