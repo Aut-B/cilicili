@@ -27,7 +27,10 @@ if ! xcodebuild build \
     AD_HOC_CODE_SIGNING_ALLOWED=YES \
     ENABLE_DEBUG_DYLIB=NO > "$LOG_PATH" 2>&1; then
   echo "Build failed. Log: $LOG_PATH" >&2
-  tail -120 "$LOG_PATH" >&2
+  echo "=== 全部 error 汇总（去重）===" >&2
+  grep -E ": error:" "$LOG_PATH" | sort -u >&2 || true
+  echo "=== 日志尾部 ===" >&2
+  tail -80 "$LOG_PATH" >&2
   exit 1
 fi
 

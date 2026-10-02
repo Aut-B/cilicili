@@ -48,7 +48,9 @@ extension LabeledContent where Label == Text {
     public init<S: StringProtocol>(_ title: S, @ViewBuilder content: () -> Content) {
         self.init {
             Text(title)
-        } content: content
+        } content: {
+            content()
+        }
     }
 }
 
