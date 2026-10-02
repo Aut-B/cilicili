@@ -243,3 +243,101 @@ extension View {
         self
     }
 }
+
+// MARK: - ScrollPosition / scrollPosition (iOS 18)
+
+public struct ScrollPosition: Equatable {
+    public init() {}
+
+    public mutating func scrollTo(y: CGFloat) {}
+    public mutating func scrollTo(x: CGFloat) {}
+    public mutating func scrollTo(edge: Edge) {}
+    public mutating func scrollTo(id: AnyHashable, anchor: UnitPoint? = nil) {}
+}
+
+extension View {
+    public func scrollPosition(_ position: Binding<ScrollPosition>) -> some View { self }
+}
+
+// MARK: - tabBarMinimizeBehavior / scrollEdgeEffectStyle (iOS 26，源码中未做可用性保护)
+
+public enum TabBarMinimizeBehavior: Hashable {
+    case automatic
+    case onScrollDown
+    case onScrollUp
+    case never
+}
+
+public enum ScrollEdgeEffectStyle: Hashable {
+    case automatic
+    case hard
+    case soft
+}
+
+extension View {
+    public func tabBarMinimizeBehavior(_ behavior: TabBarMinimizeBehavior) -> some View { self }
+    public func scrollEdgeEffectStyle(_ style: ScrollEdgeEffectStyle?) -> some View { self }
+}
+
+// MARK: - ShareLink (iOS 16)
+
+public struct ShareLink<Label: View>: View {
+    private let items: [Any]
+    private let label: Label
+    @State private var showsActivityView = false
+
+    public init(item: URL, @ViewBuilder label: () -> Label) {
+        self.items = [item]
+        self.label = label()
+    }
+
+    public init(item: String, @ViewBuilder label: () -> Label) {
+        self.items = [item]
+        self.label = label()
+    }
+
+    public init(
+        item: URL,
+        subject: Text?,
+        message: Text?,
+        @ViewBuilder label: () -> Label
+    ) {
+        var payload: [Any] = [item]
+        if let subject {
+            payload.append(subject)
+        }
+        if let message {
+            payload.append(message)
+        }
+        self.items = payload
+        self.label = label()
+    }
+
+    public var body: some View {
+        Button {
+            showsActivityView = true
+        } label: {
+            label
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showsActivityView) {
+            ActivityViewRepresentable(items: items)
+        }
+    }
+}
+
+private struct ActivityViewRepresentable: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+// MARK: - PhotosPickerItem (iOS 16，占位类型)
+
+public struct PhotosPickerItem: Hashable {
+    public init() {}
+}
