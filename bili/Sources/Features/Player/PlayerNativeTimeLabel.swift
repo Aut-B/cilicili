@@ -5,10 +5,7 @@ struct PlayerNativeTimeLabel: View {
     let metrics: PlayerNativeControlMetrics
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            Text(fullTimeText)
-            Text(currentText)
-        }
+        Text(fullTimeText)
         .font(metrics.timeFont)
         .biliLiquidGlassForeground(shadowOpacity: 0.20)
         .lineLimit(1)

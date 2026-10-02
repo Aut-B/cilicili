@@ -1643,7 +1643,7 @@ private struct SurfaceOnlyMoreControlsNavigationContent: View {
                 } label: {
                     Label("杜比视界渲染", systemImage: "sparkles.tv")
                 }
-                .pickerStyle(.navigationLink)
+                .pickerStyle(.menu)
             }
             .scrollContentBackground(.hidden)
             .listRowBackground(Color.clear)

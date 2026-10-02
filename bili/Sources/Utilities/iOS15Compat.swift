@@ -94,7 +94,7 @@ public struct ContentUnavailableView<Label: View, Description: View, Actions: Vi
 }
 
 extension ContentUnavailableView where Label == Text, Description == Text?, Actions == EmptyView {
-    public init(_ title: S, systemImage: String) where S: StringProtocol {
+    public init<S: StringProtocol>(_ title: S, systemImage: String) {
         self.init(systemImage: systemImage) {
             Text(title)
         } description: {
@@ -104,7 +104,7 @@ extension ContentUnavailableView where Label == Text, Description == Text?, Acti
         }
     }
 
-    public init(_ title: S, systemImage: String, description: Text) where S: StringProtocol {
+    public init<S: StringProtocol>(_ title: S, systemImage: String, description: Text) {
         self.init(systemImage: systemImage) {
             Text(title)
         } description: {
@@ -125,13 +125,11 @@ extension ContentUnavailableView where Description == EmptyView, Actions == Empt
     }
 }
 
-// MARK: - Visibility / scrollContentBackground (iOS 16)
-
-public enum Visibility: Hashable {
-    case automatic
-    case visible
-    case hidden
-}
+// MARK: - scrollContentBackground (iOS 16)
+//
+// 注意：这里不能自行定义 Visibility —— SwiftUI 的 Visibility 在 iOS 15 上可用，
+// 本模块若再定义一个同名类型会遮蔽它，反而让 persistentSystemOverlays 一类
+// 期待 SwiftUI.Visibility 的接口报类型不匹配。
 
 extension View {
     public func scrollContentBackground(_ visibility: Visibility) -> some View {

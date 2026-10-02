@@ -131,7 +131,9 @@ private struct NavigationStackNode: View {
     }
 
     private var pushLink: some View {
-        NavigationLink(
+        // 必须写全 SwiftUI.NavigationLink：本文件定义了同名 NavigationLink 遮蔽系统类型，
+        // 直接写 NavigationLink 会解析到自己身上。
+        SwiftUI.NavigationLink(
             isActive: Binding(
                 get: { index + 1 < path.count },
                 set: { active in
@@ -215,7 +217,7 @@ public struct NavigationLink<Label: View>: View {
         case .destination(let destination):
             label
                 .background(
-                    NavigationLink(isActive: $isActive) {
+                    SwiftUI.NavigationLink(isActive: $isActive) {
                         destination
                     } label: {
                         EmptyView()

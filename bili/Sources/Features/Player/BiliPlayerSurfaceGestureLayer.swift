@@ -120,7 +120,7 @@ struct BiliPlayerSurfaceGestureLayer<Content: View>: View {
     }
 
     private var singleTapGesture: some Gesture {
-        SpatialTapGesture(count: 1, coordinateSpace: .local)
+        TapGesture(count: 1)
             .onEnded { _ in
                 onSingleTap()
             }
