@@ -820,6 +820,16 @@ extension PhotosPickerItem {
 extension View {
     public func photosPicker(
         isPresented: Binding<Bool>,
+        selection: Binding<PhotosPickerItem?>,
+        maxSelectionCount: Int? = nil,
+        matching: PHPickerFilter? = nil,
+        preferredItemEncoding: BiliPhotosPickerEncoding = .current
+    ) -> some View {
+        self
+    }
+
+    public func photosPicker(
+        isPresented: Binding<Bool>,
         selection: Binding<[PhotosPickerItem]>,
         maxSelectionCount: Int? = nil,
         matching: PHPickerFilter? = nil,

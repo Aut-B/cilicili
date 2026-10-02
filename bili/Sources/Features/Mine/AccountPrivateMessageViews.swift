@@ -470,6 +470,7 @@ private struct AccountPrivateMessageConversationView: View {
         )
     }
 
+    @ViewBuilder
     private var withdrawalDialogActions: some View {
         Button("撤回", role: .destructive) {
             guard let target = pendingWithdrawal else { return }
