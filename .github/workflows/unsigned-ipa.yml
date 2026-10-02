@@ -26,7 +26,12 @@ jobs:
       - name: Select Xcode
         run: |
           set -euo pipefail
-          current_major="$(xcodebuild -version | awk '$1 == "Xcode" { split($2, version, "."); print version[1]; exit }')"
+          # 注意：xcodebuild 的输出必须先完整读进变量再交给 awk。
+          # 直接 `xcodebuild -version | awk '... exit'` 时，awk 匹配到第一行即退出，
+          # 管道被提前关闭，xcodebuild 继续写入时收到 SIGPIPE，在 runner 上表现为
+          # NSFileHandleOperationException / Broken pipe 并以 exit 134 失败。
+          current_xcode_output="$(xcodebuild -version)"
+          current_major="$(printf '%s\n' "$current_xcode_output" | awk '$1 == "Xcode" { split($2, version, "."); print version[1]; exit }')"
           if [ "$current_major" != "26" ]; then
             for developer_dir in \
               "/Applications/Xcode_26.4.1.app/Contents/Developer" \
@@ -55,8 +60,8 @@ jobs:
           fi
           echo "XCODE_VERSION_MAJOR=$selected_major" >> "$GITHUB_ENV"
           xcode-select -p
-          xcodebuild -version
-          xcodebuild -showsdks
+          xcodebuild -version || true
+          xcodebuild -showsdks || true
 
       - name: Build Release app without signing
         run: zsh Scripts/build-release-unsigned-ipa.sh
