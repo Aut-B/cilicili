@@ -90,7 +90,7 @@ struct DynamicInlineCommentEmotePicker: View {
                         .frame(width: 32, height: 32)
                 }
                 .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
+                .buttonBorderShape(.capsule)
                 .controlSize(.small)
                 .padding(.top, 12)
                 .padding(.trailing, 26)

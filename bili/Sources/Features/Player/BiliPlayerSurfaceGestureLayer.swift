@@ -169,12 +169,10 @@ struct BiliPlayerSurfaceGestureLayer<Content: View>: View {
         TapGesture(count: 2)
             .exclusively(before: TapGesture(count: 1))
             .onEnded { value in
+                // iOS 15 的 TapGesture 不提供点击坐标，双击只能整屏生效，
+                // 不再区分左右半区的播放/暂停策略。
                 switch value {
-                case .first(let doubleTap):
-                    guard PlayerDoubleTapGesturePolicy.shouldTogglePlayback(
-                        locationX: doubleTap.location.x,
-                        width: size.width
-                    ) else { return }
+                case .first:
                     onDoubleTap()
                 case .second:
                     onSingleTap()

@@ -887,7 +887,7 @@ private struct AccountPrivateMessageConversationView: View {
                         .frame(width: 36, height: 36)
                     }
                     .buttonStyle(.glass)
-                    .buttonBorderShape(.circle)
+                    .buttonBorderShape(.capsule)
                     .disabled(isSending || isSendingImage)
                     .accessibilityLabel("添加附件")
 

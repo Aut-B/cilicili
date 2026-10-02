@@ -182,7 +182,7 @@ struct UploaderContentView: View {
             .frame(width: 32, height: 32)
         }
         .disabled(isRefreshingFromToolbar)
-        .buttonBorderShape(.circle)
+        .buttonBorderShape(.capsule)
         .biliGlassButtonStyle()
         .accessibilityLabel("刷新个人空间")
     }

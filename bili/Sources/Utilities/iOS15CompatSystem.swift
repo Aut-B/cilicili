@@ -99,7 +99,7 @@ public struct Duration: Hashable, Comparable {
     }
 }
 
-extension Task {
+extension Task where Success == Never, Failure == Never {
     public static func sleep(for duration: Duration) async throws {
         let clamped = max(0, duration.timeInterval)
         try await Task.sleep(nanoseconds: UInt64(clamped * 1_000_000_000))
@@ -299,29 +299,49 @@ extension TextField where Label == Text {
 }
 
 // MARK: - 几何变化回调 (iOS 18)
+//
+// 系统的签名是 onGeometryChange(for: U.Type, of: (GeometryProxy) -> U, action: (U, U) -> Void)：
+// for 后面跟的是「变换后的值类型」，of 闭包收到的才是 GeometryProxy / ScrollGeometry。
+// 之前把泛型参数写反了，导致调用点匹配不上。
+
+public struct BiliScrollGeometry {
+    public var contentOffset: CGPoint { .zero }
+    public var contentInsets: UIEdgeInsets { .zero }
+    public var contentSize: CGSize { .zero }
+    public var containerSize: CGSize { .zero }
+    public var visibleRect: CGRect { .zero }
+    public var bounds: CGRect { .zero }
+}
 
 extension View {
-    public func onGeometryChange<T: Equatable, U: Equatable>(
-        for type: T.Type,
-        of transform: @escaping (T) -> U,
+    public func onGeometryChange<U: Equatable>(
+        for type: U.Type,
+        of transform: @escaping (GeometryProxy) -> U,
+        action: @escaping (U, U) -> Void
+    ) -> some View {
+        self
+    }
+
+    public func onGeometryChange<U: Equatable>(
+        for type: U.Type,
+        of transform: @escaping (GeometryProxy) -> U,
         action: @escaping (U) -> Void
     ) -> some View {
         self
     }
 
-    // 源码里 action 写成 { _, viewWidth in ... }，是 (旧值, 新值) 两个参数
-    public func onGeometryChange<T: Equatable, U: Equatable>(
-        for type: T.Type,
-        of transform: @escaping (T) -> U,
+    public func onScrollGeometryChange<U: Equatable>(
+        for type: U.Type,
+        of transform: @escaping (BiliScrollGeometry) -> U,
         action: @escaping (U, U) -> Void
     ) -> some View {
         self
     }
 
-    public func onScrollGeometryChange<T: Equatable, U: Equatable>(
-        for type: T.Type,
-        of transform: @escaping (T) -> U,
-        action: @escaping (U, U) -> Void
+    public func onScrollGeometryChange<U: Equatable>(
+        for type: U.Type,
+        of transform: @escaping (BiliScrollGeometry) -> U,
+        action: @escaping (U) -> Void
     ) -> some View {
         self
     }
@@ -762,6 +782,22 @@ extension View {
     public func presentationDetents(
         _ detents: [PresentationDetent],
         selection: Binding<PresentationDetent>
+    ) -> some View {
+        self
+    }
+}
+
+// MARK: - presentationContentInteraction (iOS 16.4)
+
+public enum BiliPresentationContentInteraction {
+    case automatic
+    case resizes
+    case scrolls
+}
+
+extension View {
+    public func presentationContentInteraction(
+        _ behavior: BiliPresentationContentInteraction
     ) -> some View {
         self
     }

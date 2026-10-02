@@ -14,7 +14,7 @@ struct VideoDetailActionStripIconButton: View {
                 foregroundStyle: foregroundStyle
             )
         }
-        .buttonBorderShape(.circle)
+        .buttonBorderShape(.capsule)
         .controlSize(.mini)
         .biliGlassButtonStyle()
         .contentShape(Circle())
