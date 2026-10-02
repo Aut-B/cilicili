@@ -64,7 +64,7 @@ enum AppOrientationLock {
     ) {
         scenes.forEach { scene in
             scene.requestGeometryUpdate(
-                UIWindowScene.GeometryPreferences.iOS(interfaceOrientations: orientations)
+                BiliGeometryPreferences.iOS(interfaceOrientations: orientations)
             ) { _ in }
         }
     }

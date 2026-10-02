@@ -166,8 +166,8 @@ struct BiliPlayerSurfaceGestureLayer<Content: View>: View {
     }
 
     private func tapGesture(size: CGSize) -> some Gesture {
-        SpatialTapGesture(count: 2, coordinateSpace: .local)
-            .exclusively(before: SpatialTapGesture(count: 1, coordinateSpace: .local))
+        TapGesture(count: 2)
+            .exclusively(before: TapGesture(count: 1))
             .onEnded { value in
                 switch value {
                 case .first(let doubleTap):

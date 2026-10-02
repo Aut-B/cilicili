@@ -34,7 +34,6 @@ struct VideoDetailNativeContentTabView<Content: View>: View {
         }
         .ignoresSafeArea(.container, edges: .bottom)
         .toolbar {
-            if onOpenCommentComposer != nil {
                 ToolbarSpacer(.flexible, placement: .bottomBar)
                 ToolbarItem(placement: .bottomBar) {
                     Group {
@@ -79,14 +78,6 @@ struct VideoDetailNativeContentTabView<Content: View>: View {
                 }
                 .sharedBackgroundVisibility(selection == .comments ? .automatic : .hidden)
                 ToolbarSpacer(.flexible, placement: .bottomBar)
-            } else {
-                ToolbarItemGroup(placement: .bottomBar) {
-                    Spacer(minLength: 0)
-                    VideoDetailToolbarSegmentedPickerView(selection: toolbarSelection)
-                        .frame(width: VideoDetailToolbarSegmentedPickerView.compactWidth)
-                    Spacer(minLength: 0)
-                }
-            }
         }
         .toolbarBackground(.hidden, for: .bottomBar)
         .toolbarVisibility(hidesBottomToolbar ? .hidden : .visible, for: .bottomBar)

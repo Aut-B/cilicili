@@ -19,7 +19,9 @@ public struct LabeledContent<Label: View, Content: View>: View {
     private let label: Label
     private let content: Content
 
-    public init(@ViewBuilder label: () -> Label, @ViewBuilder content: () -> Content) {
+    // 参数顺序必须和系统一致：content 在前、label 在后。
+    // 源码里大量写作 LabeledContent { 值 } label: { 标题 }。
+    public init(@ViewBuilder content: () -> Content, @ViewBuilder label: () -> Label) {
         self.label = label()
         self.content = content()
     }
@@ -37,19 +39,17 @@ public struct LabeledContent<Label: View, Content: View>: View {
 extension LabeledContent where Label == Text, Content == Text {
     public init<S1: StringProtocol, S2: StringProtocol>(_ title: S1, value: S2) {
         self.init {
-            Text(title)
-        } content: {
             Text(value)
+        } label: {
+            Text(title)
         }
     }
 }
 
 extension LabeledContent where Label == Text {
     public init<S: StringProtocol>(_ title: S, @ViewBuilder content: () -> Content) {
-        self.init {
+        self.init(content: content) {
             Text(title)
-        } content: {
-            content()
         }
     }
 }

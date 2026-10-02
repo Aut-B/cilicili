@@ -23,7 +23,7 @@ struct DanmakuSettingsTextSection: View {
             } label: {
                 Label("字体粗细", systemImage: "bold")
             }
-            .pickerStyle(.navigationLink)
+            .pickerStyle(.menu)
         }
     }
 }

@@ -703,7 +703,7 @@ private struct AccountPrivateMessageConversationView: View {
             let delays = [15, 30, 60]
             let delay = delays[min(consecutiveFailures, delays.count - 1)]
             do {
-                try await Task.sleep(for: .seconds(delay))
+                try await Task.sleep(nanoseconds: UInt64(delay) * 1_000_000_000)
             } catch {
                 return
             }
@@ -755,7 +755,7 @@ private struct AccountPrivateMessageConversationView: View {
         let value = draft
         draftSaveTask = Task {
             do {
-                try await Task.sleep(for: .milliseconds(350))
+                try await Task.sleep(nanoseconds: UInt64(350) * 1_000_000)
             } catch {
                 return
             }

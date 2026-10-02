@@ -50,7 +50,7 @@ private struct UITestDynamicDetailFixtureView: View {
         .task {
             guard UITestFixtureScenario.autoOpensDynamicDetail,
                   activeNavigationPath.wrappedValue.isEmpty else { return }
-            try? await Task.sleep(for: .seconds(1))
+            try? await Task.sleep(nanoseconds: UInt64(1) * 1_000_000_000)
             guard !Task.isCancelled,
                   activeNavigationPath.wrappedValue.isEmpty else { return }
             activeNavigationPath.wrappedValue.append(DynamicDetailTarget.loaded(Self.imageItem))
@@ -97,12 +97,14 @@ private struct UITestDynamicDetailFixtureView: View {
                     title: "搜索"
                 ) {}
                 .toolbar {
-                    if tab == .home {
-                        ToolbarItem(placement: .topBarLeading) {
+                    ToolbarItem(placement: .topBarLeading) {
+                        if tab == .home {
                             Button("推荐/热门") {}
                                 .accessibilityIdentifier("fixture.home.mode")
                         }
-                        ToolbarItem(placement: .topBarTrailing) {
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        if tab == .home {
                             Button("账号消息", systemImage: "bell.fill") {}
                                 .accessibilityIdentifier("fixture.home.messages")
                         }

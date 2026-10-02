@@ -273,10 +273,10 @@ final class VideoDetailRotationBridgeViewController: UIViewController {
         coordinatorDuration: TimeInterval
     ) {
         rotationWatchdogTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(
+            try? await Task.sleep(nanoseconds: UInt64(
                 VideoDetailRotationRecoveryPolicy().watchdogDelay(
                     coordinatorDuration: coordinatorDuration
-                )
+                ) * 1_000_000_000
             ))
             guard let self,
                   !Task.isCancelled,
@@ -294,9 +294,9 @@ final class VideoDetailRotationBridgeViewController: UIViewController {
     ) {
         rotationCompletionTask = Task { @MainActor [weak self] in
             if settleDelay > 0 {
-                try? await Task.sleep(for: .seconds(settleDelay))
+                try? await Task.sleep(nanoseconds: UInt64(settleDelay) * 1_000_000_000)
             }
-            try? await Task.sleep(for: .milliseconds(34))
+            try? await Task.sleep(nanoseconds: UInt64(34) * 1_000_000)
             guard let self,
                   !Task.isCancelled,
                   self.rotationGeneration == generation

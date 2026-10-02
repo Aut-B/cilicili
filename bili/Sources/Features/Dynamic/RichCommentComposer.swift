@@ -1039,7 +1039,7 @@ struct RichCommentComposerView: View {
                         .frame(width: ControlLayout.size, height: ControlLayout.size)
                 }
                 .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
+                .buttonBorderShape(.capsule)
                 .controlSize(.small)
                 .accessibilityLabel(inputMode == .emotes ? "切换至系统键盘" : "选择表情")
                 .accessibilityIdentifier("dynamic.comment.composer.emote")
@@ -1051,7 +1051,7 @@ struct RichCommentComposerView: View {
                         .frame(width: ControlLayout.size, height: ControlLayout.size)
                 }
                 .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
+                .buttonBorderShape(.capsule)
                 .controlSize(.small)
                 .disabled(draft.images.count >= Limits.maximumImageCount || isSubmitting)
                 .accessibilityLabel("添加图片")
@@ -1257,13 +1257,13 @@ private struct RichCommentSendButtonAppearance: ViewModifier {
         if isEnabled {
             content
                 .buttonStyle(.glassProminent)
-                .buttonBorderShape(.circle)
+                .buttonBorderShape(.capsule)
                 .tint(tint)
                 .foregroundStyle(.white)
         } else {
             content
                 .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
+                .buttonBorderShape(.capsule)
                 .foregroundStyle(.primary)
         }
     }

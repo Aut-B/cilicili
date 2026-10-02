@@ -296,7 +296,7 @@ final class MineViewModel: ObservableObject {
     private func pollQRCodeLogin(_ info: QRCodeLoginInfo) async {
         while !Task.isCancelled {
             do {
-                try await Task.sleep(for: .seconds(1))
+                try await Task.sleep(nanoseconds: UInt64(1) * 1_000_000_000)
             } catch {
                 return
             }

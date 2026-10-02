@@ -32,7 +32,7 @@ struct QRCodeLoginView: View {
             guard case .succeeded = state else { return }
             dismissTask?.cancel()
             dismissTask = Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(900))
+                try? await Task.sleep(nanoseconds: UInt64(900) * 1_000_000)
                 dismiss()
             }
         }

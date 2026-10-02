@@ -130,7 +130,7 @@ struct SMSLoginView: View {
                     captchaKey: captchaKey
                 )
                 message = "登录成功"
-                try? await Task.sleep(for: .milliseconds(800))
+                try? await Task.sleep(nanoseconds: UInt64(800) * 1_000_000)
                 dismiss()
             } catch {
                 message = error.localizedDescription
@@ -144,7 +144,7 @@ struct SMSLoginView: View {
         cooldown = 60
         cooldownTask = Task { @MainActor in
             while cooldown > 0, !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
+                try? await Task.sleep(nanoseconds: UInt64(1) * 1_000_000_000)
                 if !Task.isCancelled {
                     cooldown -= 1
                 }

@@ -206,7 +206,7 @@ struct VideoDetailShellSurfaceRepresentable: UIViewRepresentable {
             attachmentRetry = Task { @MainActor [weak self, weak host] in
                 for _ in 0..<8 {
                     guard !Task.isCancelled else { return }
-                    try? await Task.sleep(for: .milliseconds(16))
+                    try? await Task.sleep(nanoseconds: UInt64(16) * 1_000_000)
                     guard let self, let host, !Task.isCancelled else { return }
                     if self.nearestViewController(from: host) != nil {
                         self.attachmentRetry = nil

@@ -31,7 +31,7 @@ struct HomeFeedPullRefreshOverlay: View {
         }
         .task(id: refreshCompletionSuppressionID) {
             guard suppressesPullProgress else { return }
-            try? await Task.sleep(for: .milliseconds(360))
+            try? await Task.sleep(nanoseconds: UInt64(360) * 1_000_000)
             guard !Task.isCancelled else { return }
             suppressesPullProgress = false
         }

@@ -83,7 +83,7 @@ final class HomeFeedRefreshActions {
                 Haptics.success()
             }
             phase = .settling
-            try? await Task.sleep(for: .milliseconds(360))
+            try? await Task.sleep(nanoseconds: UInt64(360) * 1_000_000)
             guard !Task.isCancelled else { return }
             canFinishSettling = true
             refreshTask = nil

@@ -697,8 +697,8 @@ private struct AccountMessageCommentThreadSheet: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("关闭") { dismiss() }
                     }
-                    if let originalURL = target.originalURL {
-                        ToolbarItem(placement: .topBarTrailing) {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        if let originalURL = target.originalURL {
                             AppLinkButton(url: originalURL) {
                                 Image(systemName: "arrow.up.right.square")
                             }

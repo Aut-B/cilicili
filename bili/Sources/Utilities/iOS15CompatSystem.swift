@@ -16,7 +16,7 @@
 import SwiftUI
 import UIKit
 import AVKit
-import CoreImage
+import PhotosUI
 
 // MARK: - onChange(of:initial:_:) (iOS 17，71 处)
 
@@ -46,9 +46,11 @@ private struct OnChangeInitialModifier<V: Equatable>: ViewModifier {
 }
 
 extension View {
+    // initial 必须带默认值：调用点普遍写作 .onChange(of: x) { _, _ in }，
+    // 命中 iOS 17 那个 initial 有默认值的重载。
     public func onChange<V: Equatable>(
         of value: V,
-        initial: Bool,
+        initial: Bool = false,
         _ action: @escaping (V, V) -> Void
     ) -> some View {
         modifier(OnChangeInitialModifier(value: value, initial: initial, action: action))
@@ -56,7 +58,7 @@ extension View {
 
     public func onChange<V: Equatable>(
         of value: V,
-        initial: Bool,
+        initial: Bool = false,
         _ action: @escaping () -> Void
     ) -> some View {
         modifier(
@@ -106,19 +108,26 @@ extension Task {
 
 // MARK: - URL (iOS 16)
 
-extension URL {
-    public enum DirectoryHint {
-        case notDirectory
-        case isDirectory
-        case checkFileSystem
-        case inferFromPath
-    }
+// 不要把这个枚举嵌进 extension URL：嵌套类型放在扩展里时，
+// 调用点写 URL.DirectoryHint / UIWindowScene.GeometryPreferences 会被系统那份
+// （iOS 16 才有）抢先解析，结果还是报不可用。放到顶层就没这个歧义。
+public enum BiliURLDirectoryHint {
+    case notDirectory
+    case isDirectory
+    case checkFileSystem
+    case inferFromPath
+}
 
+extension URL {
     public func appending(
         path: String,
-        directoryHint: DirectoryHint = .inferFromPath
+        directoryHint: BiliURLDirectoryHint = .inferFromPath
     ) -> URL {
         appendingPathComponent(path, isDirectory: directoryHint == .isDirectory)
+    }
+
+    public func appending(path: String) -> URL {
+        appendingPathComponent(path)
     }
 
     public static var cachesDirectory: URL {
@@ -258,17 +267,13 @@ public struct FormStyle: Hashable {
     public static let columns = FormStyle("columns")
 }
 
-public enum ButtonBorderShape: Hashable {
-    case automatic
-    case capsule
-    case circle
-    case roundedRectangle
-}
+// 注意：ButtonBorderShape 不要自己定义。SwiftUI 的 ButtonBorderShape 在 iOS 15 上
+// 已经可用，只是 .circle 这个 case 是 iOS 17 才加的——重复定义会让 .capsule 变成
+// 二义引用。.circle 那处调用点单独改成 .capsule 即可。
 
 extension View {
     public func formStyle(_ style: FormStyle) -> some View { self }
     public func gridCellColumns(_ count: Int) -> some View { self }
-    public func buttonBorderShape(_ shape: ButtonBorderShape) -> some View { self }
     public func fontWeight(_ weight: Font.Weight?) -> some View { self }
     public func lineLimit(_ limit: ClosedRange<Int>) -> some View { self }
     public func lineLimit(_ limit: PartialRangeFrom<Int>) -> some View { self }
@@ -300,6 +305,15 @@ extension View {
         for type: T.Type,
         of transform: @escaping (T) -> U,
         action: @escaping (U) -> Void
+    ) -> some View {
+        self
+    }
+
+    // 源码里 action 写成 { _, viewWidth in ... }，是 (旧值, 新值) 两个参数
+    public func onGeometryChange<T: Equatable, U: Equatable>(
+        for type: T.Type,
+        of transform: @escaping (T) -> U,
+        action: @escaping (U, U) -> Void
     ) -> some View {
         self
     }
@@ -360,6 +374,13 @@ public enum ToolbarSpacerSizing: Hashable {
     case fixed
 }
 
+// sharedBackgroundVisibility 在源码里是接在 ToolbarItem(...) 后面的，接收者是 ToolbarContent
+extension ToolbarContent {
+    public func sharedBackgroundVisibility(_ visibility: Visibility) -> some ToolbarContent {
+        self
+    }
+}
+
 public struct ToolbarSpacer: ToolbarContent {
     public init(
         _ sizing: ToolbarSpacerSizing = .flexible,
@@ -372,6 +393,13 @@ public struct ToolbarSpacer: ToolbarContent {
 }
 
 extension View {
+    public func scrollEdgeEffectStyle(
+        _ style: ScrollEdgeEffectStyle?,
+        for edge: Edge
+    ) -> some View {
+        self
+    }
+
     public func safeAreaBar<Bar: View>(
         edge: Edge,
         alignment: Alignment = .center,
@@ -530,25 +558,25 @@ public struct BiliWindowSceneGeometry {
     public var coordinateSpace: UICoordinateSpace { UIScreen.main.coordinateSpace }
 }
 
-extension UIWindowScene {
-    public struct GeometryPreferences {
-        public let interfaceOrientations: UIInterfaceOrientationMask
+public struct BiliGeometryPreferences {
+    public let interfaceOrientations: UIInterfaceOrientationMask
 
-        public init(interfaceOrientations: UIInterfaceOrientationMask) {
-            self.interfaceOrientations = interfaceOrientations
-        }
-
-        public static func iOS(
-            interfaceOrientations: UIInterfaceOrientationMask
-        ) -> GeometryPreferences {
-            GeometryPreferences(interfaceOrientations: interfaceOrientations)
-        }
+    public init(interfaceOrientations: UIInterfaceOrientationMask) {
+        self.interfaceOrientations = interfaceOrientations
     }
 
+    public static func iOS(
+        interfaceOrientations: UIInterfaceOrientationMask
+    ) -> BiliGeometryPreferences {
+        BiliGeometryPreferences(interfaceOrientations: interfaceOrientations)
+    }
+}
+
+extension UIWindowScene {
     public var effectiveGeometry: BiliWindowSceneGeometry { BiliWindowSceneGeometry() }
 
     public func requestGeometryUpdate(
-        _ preferences: GeometryPreferences,
+        _ preferences: BiliGeometryPreferences,
         errorHandler: ((Error) -> Void)? = nil
     ) {}
 }
@@ -568,6 +596,8 @@ public struct BiliTraitOverrides {
     public init() {}
 
     public func contains<T>(_ traitType: T.Type) -> Bool { false }
+
+    public mutating func remove<T>(_ traitType: T.Type) {}
 
     public var preferredContentSizeCategory: UIContentSizeCategory {
         get { .unspecified }
@@ -673,6 +703,7 @@ public enum BiliDisplayDynamicRange {
     case automatic
     case standard
     case high
+    case never
 }
 
 extension AVPlayerViewController {
@@ -708,5 +739,56 @@ extension CALayer {
     public var preferredDynamicRange: BiliDisplayDynamicRange {
         get { .automatic }
         set {}
+    }
+}
+
+// MARK: - ContentUnavailableView.search (iOS 17)
+
+extension ContentUnavailableView where Label == Text, Description == Text, Actions == EmptyView {
+    public static func search(text: String) -> ContentUnavailableView<Text, Text, EmptyView> {
+        ContentUnavailableView(systemImage: "magnifyingglass") {
+            Text("无搜索结果")
+        } description: {
+            Text(text)
+        } actions: {
+            EmptyView()
+        }
+    }
+}
+
+// MARK: - presentationDetents(_:selection:) (iOS 16)
+
+extension View {
+    public func presentationDetents(
+        _ detents: [PresentationDetent],
+        selection: Binding<PresentationDetent>
+    ) -> some View {
+        self
+    }
+}
+
+// MARK: - PhotosPicker (iOS 16) —— iOS 15 上整体降级为空实现
+
+public enum BiliPhotosPickerEncoding {
+    case automatic
+    case current
+    case compatible
+}
+
+extension PhotosPickerItem {
+    public var itemIdentifier: String? { nil }
+
+    public func loadTransferable<T>(type: T.Type) async throws -> T? { nil }
+}
+
+extension View {
+    public func photosPicker(
+        isPresented: Binding<Bool>,
+        selection: Binding<[PhotosPickerItem]>,
+        maxSelectionCount: Int? = nil,
+        matching: PHPickerFilter? = nil,
+        preferredItemEncoding: BiliPhotosPickerEncoding = .current
+    ) -> some View {
+        self
     }
 }

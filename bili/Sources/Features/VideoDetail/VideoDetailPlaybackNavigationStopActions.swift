@@ -61,7 +61,7 @@ extension VideoDetailViewModel {
     private func schedulePlaybackStopForNavigation() {
         guard navigationState.playbackStopTask == nil else { return }
         navigationState.playbackStopTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(350))
+            try? await Task.sleep(nanoseconds: UInt64(350) * 1_000_000)
             guard let self, !Task.isCancelled else { return }
             self.navigationState.playbackStopTask = nil
             self.finishStoppingPlaybackForNavigation()

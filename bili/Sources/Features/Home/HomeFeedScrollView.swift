@@ -222,7 +222,7 @@ private struct HomeNativeRefreshControlTrigger: UIViewRepresentable {
                 )
                 scrollView.setContentOffset(targetOffset, animated: true)
 
-                try? await Task.sleep(for: .milliseconds(320))
+                try? await Task.sleep(nanoseconds: UInt64(320) * 1_000_000)
                 guard !Task.isCancelled else {
                     refreshControl.endRefreshing()
                     return
@@ -242,7 +242,7 @@ private struct HomeNativeRefreshControlTrigger: UIViewRepresentable {
                 if let scrollView = sourceView.enclosingScrollView {
                     return scrollView
                 }
-                try? await Task.sleep(for: .milliseconds(40))
+                try? await Task.sleep(nanoseconds: UInt64(40) * 1_000_000)
             }
             return nil
         }
