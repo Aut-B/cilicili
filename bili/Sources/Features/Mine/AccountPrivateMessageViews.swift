@@ -463,6 +463,24 @@ private struct AccountPrivateMessageConversationView: View {
         await synchronizeLoop(using: proxy)
     }
 
+    private var withdrawalDialogPresented: Binding<Bool> {
+        Binding(
+            get: { pendingWithdrawal != nil },
+            set: { if !$0 { pendingWithdrawal = nil } }
+        )
+    }
+
+    private var withdrawalDialogActions: some View {
+        Button("撤回", role: .destructive) {
+            guard let target = pendingWithdrawal else { return }
+            pendingWithdrawal = nil
+            Task { await withdraw(target) }
+        }
+        Button("取消", role: .cancel) {
+            pendingWithdrawal = nil
+        }
+    }
+
     private var messageRows: some View {
         ForEach(messages) { message in
             AccountPrivateMessageBubble(
@@ -548,20 +566,10 @@ private struct AccountPrivateMessageConversationView: View {
         }
         .confirmationDialog(
             "撤回这条私信？",
-            isPresented: Binding(
-                get: { pendingWithdrawal != nil },
-                set: { if !$0 { pendingWithdrawal = nil } }
-            ),
+            isPresented: withdrawalDialogPresented,
             titleVisibility: .visible
         ) {
-            Button("撤回", role: .destructive) {
-                guard let pendingWithdrawal else { return }
-                self.pendingWithdrawal = nil
-                Task { await withdraw(pendingWithdrawal) }
-            }
-            Button("取消", role: .cancel) {
-                pendingWithdrawal = nil
-            }
+            AnyView(withdrawalDialogActions)
         } message: {
             Text("撤回后，对方将无法继续查看这条消息。是否能撤回仍由 B站服务器判断。")
         }
