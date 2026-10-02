@@ -190,6 +190,9 @@ enum VideoListenPlaybackEndResolver {
             return .replayCurrent
         case .stopAfterCurrent:
             return .pause
+        case .repeatAll, .shuffle:
+            // 前进动作的具体取项由 VideoListenQueueSession 按 wrapAround / randomize 决定。
+            return .advance
         }
     }
 }
