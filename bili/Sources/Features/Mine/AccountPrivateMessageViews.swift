@@ -451,23 +451,26 @@ private struct AccountPrivateMessageConversationView: View {
     @State private var messageActionErrorMessage: String?
     @FocusState private var isComposerFocused: Bool
 
+    private var messageRows: some View {
+        ForEach(messages) { message in
+            AccountPrivateMessageBubble(
+                message: message,
+                inlineEmotes: viewModel.inlineEmotes,
+                isMutating: mutatingMessageIDs.contains(message.id)
+            )
+            .id(message.id)
+            .contextMenu {
+                messageContextMenu(for: message)
+            }
+        }
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    historyControl
-
-                    ForEach(messages) { message in
-                        AccountPrivateMessageBubble(
-                            message: message,
-                            inlineEmotes: viewModel.inlineEmotes,
-                            isMutating: mutatingMessageIDs.contains(message.id)
-                        )
-                            .id(message.id)
-                            .contextMenu {
-                                messageContextMenu(for: message)
-                            }
-                    }
+                    AnyView(historyControl)
+                    messageRows
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
