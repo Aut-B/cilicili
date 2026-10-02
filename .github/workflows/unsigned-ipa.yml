@@ -42,7 +42,12 @@ jobs:
             done
           fi
 
-          selected_version="$(xcodebuild -version | awk '$1 == "Xcode" { print $2; exit }')"
+          # 必须先把 xcodebuild 的输出完整读进变量再交给 awk 处理。
+          # 直接 `xcodebuild -version | awk '... exit'` 时，awk 匹配到第一行就退出，
+          # 管道被提前关闭，xcodebuild 继续写入时收到 SIGPIPE，
+          # 在 GitHub runner 上表现为 NSFileHandleOperationException / exit 134。
+          xcode_version_output="$(xcodebuild -version)"
+          selected_version="$(printf '%s\n' "$xcode_version_output" | awk '$1 == "Xcode" { print $2; exit }')"
           selected_major="${selected_version%%.*}"
           if [ "$selected_major" != "26" ]; then
             echo "Xcode 26 is required; selected $selected_version" >&2
