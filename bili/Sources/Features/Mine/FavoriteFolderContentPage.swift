@@ -194,6 +194,10 @@ struct FavoriteFolderContentPage: View {
             seed: seed,
             videos: videos
         )
+        guard let openVideo else {
+            queueErrorMessage = "当前页面不支持打开视频，请返回后重试。"
+            return
+        }
         openVideo(seed)
     }
 }
