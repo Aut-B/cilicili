@@ -284,16 +284,6 @@ extension View {
     public func sharedBackgroundVisibility(_ visibility: Visibility) -> some View { self }
 }
 
-extension Font {
-    public static func system(
-        _ style: Font.TextStyle,
-        design: Font.Design = .default,
-        weight: Font.Weight = .regular
-    ) -> Font {
-        Font.system(style, design: design).weight(weight)
-    }
-}
-
 extension TextField where Label == Text {
     public init<S: StringProtocol>(_ title: S, text: Binding<String>, axis: Axis) {
         self.init(title, text: text)
