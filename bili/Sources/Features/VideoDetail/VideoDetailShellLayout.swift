@@ -128,15 +128,31 @@ struct VideoDetailShellLayout: Equatable {
         return max(minimum, min(currentPlayerHeight ?? expanded, expanded))
     }
 
+    /// 解析竖屏下的播放器/内容几何。
+    ///
+    /// - Parameter topInsetAlreadyApplied:
+    ///   当前坐标区域**已经**被扣掉的顶部安全区高度（即区域原点相对窗口顶部的偏移）。
+    ///   iOS 16+ 用 `UIHostingController.safeAreaRegions = []` 让 SwiftUI 内容铺满整屏，
+    ///   区域原点就是窗口原点，此处传 0；iOS 15 没有 `safeAreaRegions`（兼容层里是空实现），
+    ///   SwiftUI 内容被安全区整体下移，区域原点就等于这段偏移量。
+    ///   若不做区分地一律再加一次 `safeAreaTop`，同一段安全区会被计算两遍：
+    ///   真机（iPhone 6s / iOS 15.8.8）实测区域原点 64pt（状态栏 20 + 空导航栏 44），
+    ///   播放器再下移 64pt，视频顶部落在屏幕下 128pt 处，即用户反馈的「上方空出大黑边」。
     static func resolve(
         bounds: CGRect,
         safeAreaTop: CGFloat,
+        topInsetAlreadyApplied: CGFloat = 0,
         videoAspectRatio: CGFloat,
         currentPlayerHeight: CGFloat?,
         isPlaybackActive: Bool,
         isLandscape: Bool,
         isPortraitFullscreen: Bool
     ) -> Self {
+        // 区域已扣除的部分不再重复计算；夹紧到 [0, safeAreaTop]，避免异常读数把播放器推到区域上方。
+        let effectiveSafeAreaTop = max(
+            0,
+            max(0, safeAreaTop) - min(max(0, topInsetAlreadyApplied), max(0, safeAreaTop))
+        )
         let usesFullscreenLayout = isLandscape || isPortraitFullscreen
         let canInteractivelyCollapse = supportsInteractiveCollapse(
             videoAspectRatio: videoAspectRatio,
@@ -168,15 +184,15 @@ struct VideoDetailShellLayout: Equatable {
         return Self(
             playerFrame: CGRect(
                 x: bounds.minX,
-                y: bounds.minY + max(0, safeAreaTop),
+                y: bounds.minY + effectiveSafeAreaTop,
                 width: bounds.width,
                 height: max(playerHeight, 0)
             ),
             contentFrame: CGRect(
                 x: bounds.minX,
-                y: bounds.minY + max(0, safeAreaTop),
+                y: bounds.minY + effectiveSafeAreaTop,
                 width: bounds.width,
-                height: max(bounds.height - max(0, safeAreaTop), 0)
+                height: max(bounds.height - effectiveSafeAreaTop, 0)
             ),
             contentTopInset: canInteractivelyCollapse
                 ? expandedPlayerHeight(

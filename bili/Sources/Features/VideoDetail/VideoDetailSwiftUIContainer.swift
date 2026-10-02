@@ -111,6 +111,7 @@ final class VideoDetailSwiftUIContainerModel: ObservableObject {
     func layout(
         in size: CGSize,
         safeAreaTop: CGFloat,
+        topInsetAlreadyApplied: CGFloat,
         rotationCoordinator: PlaybackRotationCoordinator
     ) -> VideoDetailShellLayout {
         let effectiveInteractiveOffset = isInteractiveScrollCollapseActive
@@ -122,12 +123,27 @@ final class VideoDetailSwiftUIContainerModel: ObservableObject {
         return VideoDetailShellLayout.resolve(
             bounds: CGRect(origin: .zero, size: size),
             safeAreaTop: safeAreaTop,
+            topInsetAlreadyApplied: topInsetAlreadyApplied,
             videoAspectRatio: videoAspectRatio,
             currentPlayerHeight: effectivePlayerHeight,
             isPlaybackActive: isPlaybackActiveForLayout,
             isLandscape: rotationCoordinator.layoutLandscape,
             isPortraitFullscreen: rotationCoordinator.isPortraitFullscreen
         )
+    }
+
+    /// 当前 SwiftUI 坐标区域原点相对窗口顶部的偏移。
+    ///
+    /// iOS 15 的兼容层无法真正实现 `UIHostingController.safeAreaRegions = []`（该 API
+    /// iOS 16 才有，兼容层里是空实现），若内容树未被铺满整屏，SwiftUI 内容会被安全区整体
+    /// 下移，区域原点即等于这段偏移量。布局里的 `safeAreaTop` 必须扣掉这一部分，否则同一段
+    /// 安全区会被计算两遍：真机（iPhone 6s / iOS 15.8.8）实测区域原点 64pt（状态栏 20 +
+    /// 空导航栏 44），播放器再下移 64pt，视频顶部落在屏幕下 128pt 处，即「上方空出大黑边」。
+    ///
+    /// 配合 `ignoresSafeArea(.container, edges: .all)` 使用：铺满整屏时该值为 0（走正常路径），
+    /// 一旦铺满失效则回落到这里的去重逻辑，两种情况都能把安全区只算一次。
+    func appliedTopInset(regionTopInWindow: CGFloat) -> CGFloat {
+        max(0, regionTopInWindow)
     }
 
     func storedInteractiveScrollOffset(for tab: VideoDetailContentTab) -> CGFloat {
@@ -537,6 +553,7 @@ private struct VideoDetailInteractivePlayerLayer: View {
     let viewModel: VideoDetailViewModel
     let size: CGSize
     let safeAreaTop: CGFloat
+    let topInsetAlreadyApplied: CGFloat
     let selectedContentTab: VideoDetailContentTab
     let dependencies: AppDependencies
     let runtimeSettings: VideoDetailRuntimeSettingsStore
@@ -552,6 +569,7 @@ private struct VideoDetailInteractivePlayerLayer: View {
         let layout = model.layout(
             in: size,
             safeAreaTop: safeAreaTop,
+            topInsetAlreadyApplied: topInsetAlreadyApplied,
             rotationCoordinator: rotationCoordinator
         )
         let showsCollapsedChrome = model.shouldShowCollapsedChrome(
@@ -605,7 +623,9 @@ private struct VideoDetailInteractivePlayerLayer: View {
                 bounds: size,
                 videoAspectRatio: model.videoAspectRatio,
                 isLandscape: rotationCoordinator.layoutLandscape,
-                isPortraitFullscreen: rotationCoordinator.isPortraitFullscreen
+                isPortraitFullscreen: rotationCoordinator.isPortraitFullscreen,
+                appliedTopInset: topInsetAlreadyApplied,
+                safeAreaTop: safeAreaTop
             )
             .zIndex(99)
         }
@@ -628,6 +648,8 @@ private struct VideoDetailGeometryDebugHUD: View {
     let videoAspectRatio: CGFloat
     let isLandscape: Bool
     let isPortraitFullscreen: Bool
+    let appliedTopInset: CGFloat
+    let safeAreaTop: CGFloat
 
     var body: some View {
         let playerFrame = layout.playerFrame
@@ -635,8 +657,8 @@ private struct VideoDetailGeometryDebugHUD: View {
             "GEOM bounds \(Int(bounds.width))x\(Int(bounds.height))\n"
             + "player \(Int(playerFrame.width))x\(Int(playerFrame.height)) y=\(Int(playerFrame.minY))\n"
             + "aspect \(String(format: "%.3f", videoAspectRatio))\n"
-            + "fullscreen \(layout.usesFullscreenLayout) land \(isLandscape) pfs \(isPortraitFullscreen)\n"
-            + "topInset \(Int(layout.contentTopInset ?? -1))"
+            + "fs \(layout.usesFullscreenLayout) land \(isLandscape) pfs \(isPortraitFullscreen)\n"
+            + "dedup \(Int(appliedTopInset)) safeTop \(Int(safeAreaTop)) cTop \(Int(layout.contentTopInset ?? -1))"
         return VStack(alignment: .leading) {
             Text(text)
                 .font(.system(size: 11))
@@ -675,9 +697,16 @@ struct VideoDetailSwiftUIContainer: View {
     var body: some View {
         GeometryReader { proxy in
             let isInteractiveScrollCollapseEnabled = model.isInteractiveScrollCollapseActive
+            // 该区域相对窗口顶部的偏移量：iOS 15 下 SwiftUI 内容若未铺满整屏会被安全区整体
+            // 下移，这段偏移必须从布局的 safeAreaTop 里扣掉，否则安全区会被算两次，视频顶部
+            // 就会多出一条大黑边（真机实测 64pt）。
+            let appliedTopInset = model.appliedTopInset(
+                regionTopInWindow: proxy.frame(in: .global).minY
+            )
             let layout = model.layout(
                 in: proxy.size,
                 safeAreaTop: model.rootSafeAreaInsets.top,
+                topInsetAlreadyApplied: appliedTopInset,
                 rotationCoordinator: rotationCoordinator
             )
 
@@ -766,6 +795,7 @@ struct VideoDetailSwiftUIContainer: View {
                     viewModel: viewModel,
                     size: proxy.size,
                     safeAreaTop: model.rootSafeAreaInsets.top,
+                    topInsetAlreadyApplied: appliedTopInset,
                     selectedContentTab: selectedContentTab,
                     dependencies: dependencies,
                     runtimeSettings: runtimeSettings,
@@ -786,6 +816,10 @@ struct VideoDetailSwiftUIContainer: View {
                 }
             }
         }
+        // iOS 15 没有 `UIHostingController.safeAreaRegions`（兼容层里是空实现），改用 SwiftUI
+        // 自带的等价开关让整棵内容树铺满整屏，与 iOS 16+ 的 `safeAreaRegions = []` 行为对齐。
+        // 只在 container 区域内铺满、不动 keyboard，避免影响评论输入的键盘避让。
+        .ignoresSafeArea(.container, edges: .all)
         .background(.black)
     }
 }
