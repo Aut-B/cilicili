@@ -18,6 +18,12 @@ echo "Building Release (unsigned, device) ..."
 build_app() {
   local optimization_level="$1"
   local log_path="$2"
+  shift 2
+  local extra_flags="${1:-}"
+  local swift_flags="-Xfrontend -solver-expression-time-threshold=10000"
+  if [[ -n "$extra_flags" ]]; then
+    swift_flags="$swift_flags $extra_flags"
+  fi
   xcodebuild build \
     -project "$ROOT_DIR/bili.xcodeproj" \
     -scheme bili \
@@ -29,12 +35,13 @@ build_app() {
     CODE_SIGNING_REQUIRED=NO \
     CODE_SIGNING_ALLOWED=NO \
     AD_HOC_CODE_SIGNING_ALLOWED=YES \
-    OTHER_SWIFT_FLAGS="-Xfrontend -solver-expression-time-threshold=10000" \
+    OTHER_SWIFT_FLAGS="$swift_flags" \
     SWIFT_OPTIMIZATION_LEVEL="$optimization_level" \
     ENABLE_DEBUG_DYLIB=NO > "$log_path" 2>&1
 }
 
 OPTIMIZED_LOG="$LOG_DIR/release-unsigned-ipa.optimized-attempt.log"
+OPTIMIZED_NOINLINE_LOG="$LOG_DIR/release-unsigned-ipa.optimized-noinline-attempt.log"
 
 # 优先使用 -O。-Onone 不做任何优化，在 A9 等老机型上详情页滚动与页面加载会明显卡顿；
 # 但 Xcode 26 的 SIL 优化在 -O 下曾触发 swift-frontend 段错误，故失败时回退到 -Onone 保证出包。
@@ -43,11 +50,24 @@ if build_app "-O" "$OPTIMIZED_LOG"; then
   cp "$OPTIMIZED_LOG" "$LOG_PATH"
   echo "Optimized (-O) build succeeded."
 else
-  echo "Optimized (-O) build failed, falling back to -Onone." >&2
-  echo "=== -O 尝试：error 汇总（去重）===" >&2
-  grep -E ": error:" "$OPTIMIZED_LOG" | sort -u >&2 || true
-  echo "=== -O 尝试：日志尾部 ===" >&2
-  tail -40 "$OPTIMIZED_LOG" >&2
+  # 崩溃点是 SIL 优化器的 EarlyPerfInliner pass（段错误，非编译报错）。
+  # @_optimize(none) 未能压住时，退一步关闭 perf inliner：仍是 -O，其余优化全部保留，
+  # 性能远好于完全不优化的 -Onone。
+  echo "Optimized (-O) build failed, retrying with perf inliner disabled ..." >&2
+  if build_app "-O" "$OPTIMIZED_NOINLINE_LOG" "-Xllvm -sil-inline-never-apply"; then
+    cp "$OPTIMIZED_NOINLINE_LOG" "$LOG_PATH"
+    {
+      echo ""
+      echo "================================================================"
+      echo "注意：-O 首次尝试触发 SIL 优化器崩溃，本次产物为 -O（关闭 perf inliner）构建。"
+      echo "================================================================"
+    } >> "$LOG_PATH"
+  else
+    echo "Optimized (-O, no perf inliner) build failed, falling back to -Onone." >&2
+    echo "=== -O 尝试：error 汇总（去重）===" >&2
+    grep -E ": error:" "$OPTIMIZED_LOG" | sort -u >&2 || true
+    echo "=== -O 尝试：日志尾部 ===" >&2
+    tail -40 "$OPTIMIZED_LOG" >&2
 
   echo "Attempt 2: SWIFT_OPTIMIZATION_LEVEL=-Onone ..."
   if ! build_app "-Onone" "$LOG_PATH"; then
@@ -69,6 +89,7 @@ else
     echo "=== -O 尝试：日志尾部 ==="
     tail -60 "$OPTIMIZED_LOG" || true
   } >> "$LOG_PATH"
+  fi
 fi
 
 APP_PATH="$DERIVED_DATA_PATH/Build/Products/Release-iphoneos/bili.app"

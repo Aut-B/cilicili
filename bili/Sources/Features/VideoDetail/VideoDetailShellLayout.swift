@@ -52,10 +52,30 @@ struct VideoDetailShellLayout: Equatable {
         videoAspectRatio: CGFloat
     ) -> CGFloat {
         let standard = standardPlayerHeight(forWidth: bounds.width)
-        guard videoAspectRatio < 0.9 else { return standard }
+        guard videoAspectRatio < 0.9 else {
+            // 16:9 等横屏视频在竖屏下按真实比例撑满宽度：宽度给满、由此推出高度，
+            // 播放器与画面同为 9:16，`.resizeAspect` 不再产生上下黑边。
+            return aspectFillHeight(forWidth: bounds.width, videoAspectRatio: videoAspectRatio)
+        }
         let proposed = max(bounds.height * 0.65, bounds.width)
         let maximum = max(standard, bounds.height * 0.72)
         return max(standard, min(proposed, maximum))
+    }
+
+    /// 竖屏下按视频真实宽高比推出的播放器高度（宽度铺满屏宽）。
+    ///
+    /// 旧实现对所有横屏视频一律使用 `width * 9/16` 的固定盒子，而播放器层的
+    /// `videoGravity` 是 `.resizeAspect`（等比完整显示）。两者对非 16:9 素材不一致时，
+    /// 画面无法填满盒子、上下（成比例不足时为左右）出现黑边，即用户看到的
+    /// 「竖屏没有正常填满屏幕」。此处改为跟随素材比例，保证盒子与画面同形。
+    static func aspectFillHeight(forWidth width: CGFloat, videoAspectRatio: CGFloat) -> CGFloat {
+        let safeWidth = max(width, 0)
+        guard videoAspectRatio.isFinite, videoAspectRatio > 0.01 else {
+            return standardPlayerHeight(forWidth: safeWidth)
+        }
+        // 上限放宽到屏高的 82%：极端素材（如 4:3）也不会把播放器撑得过高，
+        // 超出部分由内容区顶上去，而不是压掉底部可滚动空间。
+        return max(min(safeWidth / videoAspectRatio, safeWidth * 4), 1)
     }
 
     static func minimumPlayerHeight(

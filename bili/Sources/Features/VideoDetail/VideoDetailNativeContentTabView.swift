@@ -2,7 +2,10 @@ import SwiftUI
 import UIKit
 
 struct VideoDetailNativeContentTabView<Content: View>: View {
-    private let segmentedPickerHeight: CGFloat = 40
+    /// 滚动内容为切换器预留的高度，须与 `VideoDetailToolbarSegmentedPickerView.height`
+    /// 及其上下留白保持一致，否则底部会多出一段空白。
+    private let segmentedPickerHeight: CGFloat =
+        VideoDetailToolbarSegmentedPickerView.height + 8
     @Environment(\.appThemeTintColor) private var appTintColor
     @Binding var selection: VideoDetailContentTab
     let layoutWidth: CGFloat
@@ -325,6 +328,14 @@ private struct VideoDetailInteractiveScrollHost<Content: View>: UIViewRepresenta
         let contentMountsSecondaryContent: Bool
     }
 
+    /// 详情页滚动宿主的中继对象。
+    ///
+    /// `@_optimize(none)`：Xcode 26 的 SIL 优化器在处理本类自动合成的
+    /// `deinit`（符号后缀 `CfD`）时，`EarlyPerfInliner` pass 会段错误，导致整包
+    /// `-O` 构建失败并回退到不优化的 `-Onone`（A9 机型上明显卡顿）。
+    /// 该类只做少量 UIKit 中继、不含热点计算，跳过优化对性能无损失，
+    /// 却能让整包保住 `-O`。
+    @_optimize(none)
     @MainActor
     final class Coordinator: NSObject, UIScrollViewDelegate {
         var hostingController: UIHostingController<AnyView>?
@@ -488,6 +499,10 @@ private struct VideoDetailScrollingTabPage<Content: View>: View {
                     minHeight: minimumScrollableContentHeight(viewportHeight: proxy.size.height),
                     alignment: .top
                 )
+                // iOS 15 上 `.contentMargins` 的兼容实现是空操作（直接返回 self），
+                // 底部留白完全失效，评论列表末尾会被 iOS 15 回退底栏压住。
+                // 这里用 padding 兜底等效留白；iOS 16+ 由 contentMargins 负责，不重复留白。
+                .ios15ScrollContentBottomInset(bottomInset)
             }
             .environment(
                 \.videoDetailCommentsEmptyStateMinimumHeight,
@@ -540,7 +555,9 @@ private struct VideoDetailScrollingTabPage<Content: View>: View {
 }
 
 private struct VideoDetailToolbarCommentComposerButton: View {
-    static let size: CGFloat = 38
+    /// 按钮边长。与 `VideoDetailToolbarSegmentedPickerView.height` 保持一致，
+    /// 使 iOS 15 回退底栏的总高等于切换器高度 + 上下留白，不再被按钮撑高。
+    static let size: CGFloat = VideoDetailToolbarSegmentedPickerView.height
 
     let action: () -> Void
 
@@ -604,9 +621,9 @@ private struct VideoDetailIOS15BottomToolbar: View {
             }
             .frame(width: Self.buttonSize, height: Self.buttonSize)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 6)
-        .padding(.bottom, 6 + bottomSafeAreaInset)
+        .padding(.horizontal, 12)
+        .padding(.top, Self.verticalPadding)
+        .padding(.bottom, Self.verticalPadding + bottomSafeAreaInset)
         .frame(maxWidth: .infinity)
         .background(.ultraThinMaterial)
         .overlay(alignment: .top) { Divider() }
@@ -621,5 +638,29 @@ private struct VideoDetailIOS15BottomToolbar: View {
             .flatMap(\.windows)
         let window = windows.first(where: \.isKeyWindow) ?? windows.first
         return window?.safeAreaInsets.bottom ?? 0
+    }
+
+    /// iOS 15 回退底栏实际占用的高度，供滚动内容让位使用。
+    static func ios15BottomBarHeight(includingSafeArea safeAreaBottom: CGFloat) -> CGFloat {
+        VideoDetailToolbarSegmentedPickerView.height + Self.verticalPadding * 2 + max(safeAreaBottom, 0)
+    }
+
+    private static let verticalPadding: CGFloat = 4
+}
+
+private extension View {
+    /// 仅在 iOS 15 及以下为滚动内容补底部留白。
+    ///
+    /// `.contentMargins(_:for:)` 是 iOS 17 API，本工程的 iOS 15 兼容层把它实现成
+    /// 空操作（`return self`），因此在 iOS 15 上底部留白完全不生效——iOS 15 回退底栏
+    /// 是以 `.overlay` 形式盖在内容上方的，评论列表末尾会被压住看不见。
+    /// iOS 16+ 走系统 toolbar + 真实 `contentMargins`，此处不重复留白，避免出现双倍空白。
+    @ViewBuilder
+    func ios15ScrollContentBottomInset(_ inset: CGFloat) -> some View {
+        if #available(iOS 16.0, *) {
+            self
+        } else {
+            padding(.bottom, max(inset, 0))
+        }
     }
 }

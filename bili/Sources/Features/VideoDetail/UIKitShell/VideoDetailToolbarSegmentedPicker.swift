@@ -1,8 +1,10 @@
 import SwiftUI
 
 struct VideoDetailToolbarSegmentedPickerView: View {
-    static let compactWidth: CGFloat = 144
-    private static let height: CGFloat = 38
+    static let compactWidth: CGFloat = 132
+    /// 切换器高度。iOS 15 上它被包进回退底栏，过于扁平会挤字、过高则吃掉竖屏可视区，
+    /// 故取 32pt：既保证可点区域，也把底栏总高控制在 40pt 上下。
+    static let height: CGFloat = 32
 
     @Environment(\.colorScheme) private var colorScheme
     @Binding var selection: VideoDetailContentTab
