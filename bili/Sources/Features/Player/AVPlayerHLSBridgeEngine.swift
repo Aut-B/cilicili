@@ -1618,8 +1618,22 @@ final class AVPlayerHLSBridgeEngine: PlayerRenderingEngine {
                         self.maybeReleaseSeekProtectionIfReady(reason: "rate")
                     } else if timeControlStatus == .paused,
                               itemStatus == .readyToPlay {
-                        if self.isPerformingSeek || self.wantsPlayback {
+                        if self.isPerformingSeek {
                             self.publishPlaybackState(.buffering)
+                        } else if self.wantsPlayback {
+                            // The AVPlayer transitioned to paused while we still
+                            // intend to play. This is an external pause — most
+                            // commonly the user tapping pause on the
+                            // Picture-in-Picture controls, which calls
+                            // AVPlayer.pause() directly and bypasses our pause()
+                            // path. Report it as a genuine pause so the UI shows
+                            // the paused state instead of a stuck buffering
+                            // indicator. We deliberately do not reset the
+                            // playback intent here: clearing it would also tear
+                            // down the active PiP session, and the orchestration
+                            // already refuses to auto-resume while Picture-in-
+                            // Picture is active.
+                            self.publishPlaybackState(.paused)
                         } else {
                             self.updatePlaybackIntent(false)
                             self.publishPlaybackState(.paused)

@@ -4367,14 +4367,16 @@ final class PlayerStateViewModel: NSObject, ObservableObject {
            engine.hasMedia,
            !snapshot.isPlaying,
            errorMessage == nil,
-           hasCurrentSurface(generation: baselineSurfaceGeneration) {
+           hasCurrentSurface(generation: baselineSurfaceGeneration),
+           !isPictureInPictureActive {
             engine.play()
             engine.setPlaybackRate(playbackRate.rawValue)
             if !hasPresentedPlayback {
                 isBuffering = true
             }
         }
-        let shouldDisplayPlaying = snapshot.isPlaying || (wantsAutoplay && engine.hasMedia && errorMessage == nil)
+        let shouldDisplayPlaying = snapshot.isPlaying
+            || (wantsAutoplay && engine.hasMedia && errorMessage == nil && !isPictureInPictureActive)
         if isPlaying != shouldDisplayPlaying {
             isPlaying = shouldDisplayPlaying
         }
@@ -5028,7 +5030,14 @@ final class PlayerStateViewModel: NSObject, ObservableObject {
             } else {
                 isBuffering = false
                 isPlaying = false
-                playbackPhase = .paused
+                // Keep an already-ended phase intact. At the natural end of an
+                // item the rate observer also fires `.paused` (the player pauses
+                // at the end) after the dedicated end-of-item handler has already
+                // published `.ended` and scheduled the auto-advance. Overwriting
+                // the phase here would cancel that auto-advance.
+                if playbackPhase != .ended {
+                    playbackPhase = .paused
+                }
             }
         case .ended:
             cancelDeferredBufferingIndicator()
