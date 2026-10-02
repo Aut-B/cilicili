@@ -330,12 +330,19 @@ private struct VideoDetailInteractiveScrollHost<Content: View>: UIViewRepresenta
 
     /// 详情页滚动宿主的中继对象。
     ///
-    /// `@_optimize(none)`：Xcode 26 的 SIL 优化器在处理本类自动合成的
-    /// `deinit`（符号后缀 `CfD`）时，`EarlyPerfInliner` pass 会段错误，导致整包
-    /// `-O` 构建失败并回退到不优化的 `-Onone`（A9 机型上明显卡顿）。
-    /// 该类只做少量 UIKit 中继、不含热点计算，跳过优化对性能无损失，
-    /// 却能让整包保住 `-O`。
-    @_optimize(none)
+    /// 注意：Xcode 26 的 SIL 优化器（`EarlyPerfInliner` pass）在处理本类**自动合成的
+    /// `deinit`**（符号后缀 `CfD`）时会段错误，导致整包 `-O` 构建失败并回退到
+    /// 完全不优化的 `-Onone`（A9 机型上明显卡顿）。
+    ///
+    /// 绕法有两条约束同时成立：
+    /// 1. `@_optimize(none)` **不能**标注在类型声明上（Swift 报
+    ///    "attribute cannot be applied to this declaration"），只能标注函数/方法；
+    /// 2. 崩溃发生在编译器**合成**的 `deinit` 上，用户代码无法直接标注它。
+    ///
+    /// 因此这里让 `deinit` 变为**显式实现且为空**：一旦存在用户书写的 `deinit`，
+    /// 合成的 destroying-deinit 不再携带需要内联的存储清理路径，
+    /// `EarlyPerfInliner` 便不会在该函数上段错误。该类只做 UIKit 中继、不含热点计算，
+    /// 跳过优化对运行时性能无损失，却能让整包保住 `-O`。
     @MainActor
     final class Coordinator: NSObject, UIScrollViewDelegate {
         var hostingController: UIHostingController<AnyView>?
@@ -475,6 +482,11 @@ private struct VideoDetailInteractiveScrollHost<Content: View>: UIViewRepresenta
                 self.onScrollOffsetChange?(report.tab, report.offset)
             }
         }
+
+        /// 显式空析构：绕开 Xcode 26 `EarlyPerfInliner` 在**合成** destroying-deinit
+        /// （符号后缀 `CfD`）上的段错误，从而让整包 `-O` 构建能够成功。
+        /// 存储属性的清理仍由编译器在 `deinit` 之后完成，语义与合成版本一致。
+        deinit {}
     }
 }
 
