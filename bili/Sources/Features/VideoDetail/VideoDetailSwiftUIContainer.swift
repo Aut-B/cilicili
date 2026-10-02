@@ -24,6 +24,14 @@ final class VideoDetailSwiftUIContainerModel: ObservableObject {
     let playerFrameUpdates = CurrentValueSubject<CGRect, Never>(.zero)
 #endif
     @Published var rootSafeAreaInsets = UIEdgeInsets.zero
+    /// UIKit 提供的真实全屏尺寸（随旋转更新）。
+    ///
+    /// iOS 15 上 `.ignoresSafeArea(.container, edges: .all)` 无法可靠地把 SwiftUI
+    /// `GeometryReader` 区域铺满整屏（真机实测横屏区域为 667×311 而非 667×375，被安全区
+    /// 裁掉 64pt），导致全屏播放器取不到完整高度、16:9 画面上下各留 32pt 黑边。
+    /// 横屏 / 竖屏全屏布局改由该尺寸驱动，彻底绕过 SwiftUI 安全区裁剪；竖屏内嵌态仍用
+    /// SwiftUI 区域尺寸（行为不变）。
+    @Published var fullScreenSize: CGSize = .zero
     private(set) var interactiveScrollOffset: CGFloat = 0
 
     private var cancellables = Set<AnyCancellable>()
@@ -700,12 +708,24 @@ struct VideoDetailSwiftUIContainer: View {
             // 该区域相对窗口顶部的偏移量：iOS 15 下 SwiftUI 内容若未铺满整屏会被安全区整体
             // 下移，这段偏移必须从布局的 safeAreaTop 里扣掉，否则安全区会被算两次，视频顶部
             // 就会多出一条大黑边（真机实测 64pt）。
-            let appliedTopInset = model.appliedTopInset(
+            let appliedTopInsetRaw = model.appliedTopInset(
                 regionTopInWindow: proxy.frame(in: .global).minY
             )
+            let isFullscreen = rotationCoordinator.layoutLandscape
+                || rotationCoordinator.isPortraitFullscreen
+            // 横屏 / 竖屏全屏：iOS 15 的 `.ignoresSafeArea(.container, edges: .all)` 不能可靠把
+            // SwiftUI 区域铺满整屏，真机实测横屏区域为 667×311（被安全区裁掉 64pt），播放器取
+            // 不到完整高度 → 16:9 画面上下各留 32pt 黑边（「依然没有全屏」）。改由 UIKit 给出的
+            // 真实全屏尺寸驱动布局，彻底绕过 SwiftUI 安全区裁剪；安全区只算一次（appliedTopInset=0、
+            // safeTop=0），播放器直接铺满。
+            let effectiveSize = (isFullscreen && model.fullScreenSize != .zero)
+                ? model.fullScreenSize
+                : proxy.size
+            let effectiveSafeTop = isFullscreen ? 0 : model.rootSafeAreaInsets.top
+            let appliedTopInset = isFullscreen ? 0 : appliedTopInsetRaw
             let layout = model.layout(
-                in: proxy.size,
-                safeAreaTop: model.rootSafeAreaInsets.top,
+                in: effectiveSize,
+                safeAreaTop: effectiveSafeTop,
                 topInsetAlreadyApplied: appliedTopInset,
                 rotationCoordinator: rotationCoordinator
             )
@@ -793,8 +813,8 @@ struct VideoDetailSwiftUIContainer: View {
                     model: model,
                     rotationCoordinator: rotationCoordinator,
                     viewModel: viewModel,
-                    size: proxy.size,
-                    safeAreaTop: model.rootSafeAreaInsets.top,
+                    size: effectiveSize,
+                    safeAreaTop: effectiveSafeTop,
                     topInsetAlreadyApplied: appliedTopInset,
                     selectedContentTab: selectedContentTab,
                     dependencies: dependencies,
@@ -808,11 +828,11 @@ struct VideoDetailSwiftUIContainer: View {
                     onNavigateBack: onNavigateBack
                 )
             }
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+            .frame(width: effectiveSize.width, height: effectiveSize.height, alignment: .topLeading)
             .onAppear {
                 DispatchQueue.main.async {
                     model.synchronize(layout: layout)
-                    model.updateCollapsedChrome(bounds: proxy.size)
+                    model.updateCollapsedChrome(bounds: effectiveSize)
                 }
             }
         }
@@ -969,6 +989,13 @@ final class VideoDetailSwiftUIContainerViewController: UIViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        // UIKit 的真实全屏尺寸：本控制器视图被约束铺满外层 bridge 视图，旋转后即为
+        // 667×375（横屏）/ 375×667（竖屏）。横屏 / 竖屏全屏布局用它驱动，绕开 iOS 15
+        // SwiftUI 安全区裁剪导致的全屏黑边。
+        let fullSize = view.bounds.size
+        if contentModel.fullScreenSize != fullSize {
+            contentModel.fullScreenSize = fullSize
+        }
         let insets = view.safeAreaInsets
         if contentModel.rootSafeAreaInsets != insets {
             DispatchQueue.main.async { [weak self] in
